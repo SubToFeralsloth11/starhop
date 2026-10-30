@@ -61,6 +61,7 @@ function worldArt(w) {
 }
 
 export function renderWorlds(save, onPick) {
+  bindCounters(save);
   const list = $('#world-list');
   const dots = $('#world-dots');
   list.innerHTML = '';
@@ -106,6 +107,7 @@ export function renderWorlds(save, onPick) {
 }
 
 export function renderLevels(save, w, onPick) {
+  bindCounters(save);
   const t = WORLDS[w - 1];
   $('#levels-title').textContent = `${w}. ${t.name}`;
   $('#levels-stars').textContent = `${worldStars(save, w)}/${LEVELS_PER_WORLD * 3}`;

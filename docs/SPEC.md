@@ -24,7 +24,7 @@
 - **Goal**: the last planet of each level is a swirling portal; capturing it clears the level.
 - **Failure**: leaving the playfield sideways, drifting in space for more than 2.5 s, or touching a hazard. Failure restarts the level fast (≤ 1 s), counting attempts. A Shield charge (upgrade) absorbs one asteroid or laser hit; black-hole cores and crumbling planets are always fatal. In endless mode a failure ends the run.
 - **Star shards**: 3 per level, placed on flight paths the solver actually flew. Pickup radius grows with the *Magnet* upgrade.
-- **Stars per level (max 3)**: ★ cleared, ★ all 3 shards collected in one run, ★ cleared within par time. Each star is kept once earned, so they can be collected over separate runs.
+- **Stars per level (max 3)**: ★ cleared, ★ all 3 shards collected in one run, ★ cleared within par time (the clock starts at the first launch, so reading the level first is free). Each star is kept once earned, so they can be collected over separate runs.
 
 ## Worlds (each adds one mechanic; later worlds mix earlier ones)
 

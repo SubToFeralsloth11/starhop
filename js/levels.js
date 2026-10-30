@@ -376,7 +376,7 @@ export function endlessChunk(seed, chunk, start) {
   const diff = Math.min(1, 0.1 + chunk * 0.09);
   const mix = endlessMix(chunk);
   const base = { ...start, crumble: 0, goal: false };
-  for (let attempt = 0; ; attempt++) {
+  for (let attempt = 0; attempt < MAX_ATTEMPTS * 2; attempt++) {
     // After MAX_ATTEMPTS, drop hazards entirely: static planets validated hop by hop.
     const calm = attempt >= MAX_ATTEMPTS;
     const rng = makeRng(hashSeed(calm ? 'endless-calm' : 'endless', seed, chunk, attempt));
@@ -387,6 +387,7 @@ export function endlessChunk(seed, chunk, start) {
     const { planets, asteroids, lasers, holes, warps } = probe;
     return { chunk, calm, planets: planets.slice(1), asteroids, lasers, holes, warps };
   }
+  throw new Error(`endless chunk ${chunk}: no solvable layout`);
 }
 
 export function applyEndlessChunk(level, data) {

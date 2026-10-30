@@ -2,5 +2,9 @@ import { runJob } from './genworker-core.js';
 
 self.onmessage = (e) => {
   const { id, msg } = e.data;
-  self.postMessage({ id, result: runJob(msg) });
+  try {
+    self.postMessage({ id, result: runJob(msg) });
+  } catch (err) {
+    self.postMessage({ id, error: String(err && err.message ? err.message : err) });
+  }
 };

@@ -151,7 +151,7 @@ test('corrupt or foreign saves fall back to safe defaults', () => {
   assert.deepEqual(normalizeSave({ v: 99, dust: 5 }), defaultSave());
   const partial = normalizeSave({ v: 1, dust: -4, ship: 'ghost', ships: ['dart'], settings: { music: false } });
   assert.equal(partial.dust, 0);
-  assert.deepEqual(partial.ships, ['comet']);
+  assert.deepEqual(partial.ships, ['comet', 'dart'], 'owned ships survive, comet is always owned');
   assert.equal(partial.ship, 'comet');
   assert.equal(partial.settings.music, false);
   assert.equal(partial.settings.sfx, true);
@@ -166,4 +166,25 @@ test('corrupt or foreign saves fall back to safe defaults', () => {
   assert.deepEqual(loadSave(throwing), defaultSave());
   const store = new Map([[SAVE_KEY, JSON.stringify({ ...defaultSave(), dust: 77 })]]);
   assert.equal(loadSave({ getItem: (k) => store.get(k) }).dust, 77);
+});
+
+test('corrupted fields inside an otherwise valid save are dropped without losing good progress', () => {
+  const s = normalizeSave({
+    v: 1,
+    dust: 120,
+    levels: { '1-1': null, '1-2': { stars: 'x' }, '1-3': { stars: 7, best: 4.2, clears: 2 }, bogus: { stars: 1 } },
+    stats: { hops: 'many', crashes: 3 },
+    upgrades: { shield: 99, magnet: -1 },
+    daily: { lastClaim: 12, streak: 3 },
+    claimed: { clear1: true, nope: true },
+  });
+  assert.deepEqual(Object.keys(s.levels), ['1-3']);
+  assert.equal(totalStars(s), 3);
+  assert.equal(s.dust, 120);
+  assert.equal(s.stats.hops, 0);
+  assert.equal(s.stats.crashes, 3);
+  assert.equal(s.upgrades.shield, UPGRADES.find((u) => u.id === 'shield').prices.length);
+  assert.equal(s.upgrades.magnet, 0);
+  assert.equal(s.daily.lastClaim, null);
+  assert.deepEqual(s.claimed, { clear1: true });
 });

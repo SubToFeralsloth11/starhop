@@ -8,18 +8,19 @@ export class GenClient {
     this.worker = null;
     try {
       this.worker = new Worker(new URL('./genworker.js', import.meta.url), { type: 'module' });
-      this.worker.onmessage = (e) => this.settle(e.data.id, e.data.result);
+      this.worker.onmessage = (e) => this.settle(e.data.id, e.data.result, e.data.error);
       this.worker.onerror = () => this.fallBack();
     } catch {
       this.worker = null;
     }
   }
 
-  settle(id, result) {
+  settle(id, result, error) {
     const p = this.pending.get(id);
     if (!p) return;
     this.pending.delete(id);
-    p.resolve(result);
+    if (error) p.reject(new Error(error));
+    else p.resolve(result);
   }
 
   fallBack() {
@@ -31,13 +32,17 @@ export class GenClient {
   async runLocal(id, msg) {
     const { runJob } = await import('./genworker-core.js');
     await new Promise((r) => setTimeout(r, 0));
-    this.settle(id, runJob(msg));
+    try {
+      this.settle(id, runJob(msg));
+    } catch (err) {
+      this.settle(id, null, String(err.message || err));
+    }
   }
 
   request(msg) {
     const id = ++this.seq;
-    return new Promise((resolve) => {
-      this.pending.set(id, { resolve, msg });
+    return new Promise((resolve, reject) => {
+      this.pending.set(id, { resolve, reject, msg });
       if (this.worker) this.worker.postMessage({ id, msg });
       else this.runLocal(id, msg);
     });

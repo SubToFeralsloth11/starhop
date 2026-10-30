@@ -132,7 +132,11 @@ function back() {
 }
 
 function refresh(id) {
-  if (id === 'screen-title') ui.renderTitle(save, today());
+  if (id === 'screen-title') {
+    ui.renderTitle(save, today());
+    // Checked on every visit, not just at boot, so a session left open past midnight still gets it.
+    if ($('#modal-daily').hidden && ui.renderDailyModal(save, today())) setTimeout(() => ($('#modal-daily').hidden = screen !== 'screen-title'), 500);
+  }
   if (id === 'screen-worlds') {
     const focus = ui.renderWorlds(save, onWorldPick);
     requestAnimationFrame(() => focus(focusWorld || pickedWorld));
@@ -266,11 +270,35 @@ function playLevel(w, i) {
   $('#tutorial').hidden = !(w === 1 && i === 1 && !save.tutorialDone);
 }
 
+let generatingJob = false;
+
+/** Await a worker generation job, blocking double taps and reporting failures to the player. */
+async function generating(promise) {
+  generatingJob = true;
+  try {
+    return await promise;
+  } catch (err) {
+    console.error(err);
+    ui.toast('Could not build that level. Please try again.');
+    throw err;
+  } finally {
+    generatingJob = false;
+  }
+}
+
 async function playDaily() {
+  if (generatingJob) return;
   const key = today();
+  const from = screen;
   sound.play('click');
   ui.toast('Generating today’s challenge…', 1400);
-  const level = await gen.daily(key);
+  let level;
+  try {
+    level = await generating(gen.daily(key));
+  } catch {
+    return;
+  }
+  if (screen !== from) return; // the player navigated away while it was generating
   session = { mode: 'daily', level, dateKey: key };
   sound.setTheme(8);
   game.start(level, runOpts('daily', DAILY_WORLD));
@@ -279,6 +307,7 @@ async function playDaily() {
 }
 
 async function playEndless() {
+  if (generatingJob) return;
   if (!isEndlessUnlocked(save)) {
     sound.play('deny');
     ui.toast(`Clear level 1-${LEVELS_PER_WORLD} to unlock Endless`);
@@ -287,8 +316,14 @@ async function playEndless() {
   sound.play('click');
   const seed = (Date.now() ^ (Math.random() * 1e9)) >>> 0;
   const level = createEndless(seed);
+  const from = screen;
   // The first two chunks are needed before the run can start; later ones stream in while playing.
-  for (let c = 0; c < 2; c++) applyEndlessChunk(level, await gen.endless(seed, c, level.planets[level.planets.length - 1]));
+  try {
+    for (let c = 0; c < 2; c++) applyEndlessChunk(level, await generating(gen.endless(seed, c, level.planets[level.planets.length - 1])));
+  } catch {
+    return;
+  }
+  if (screen !== from) return; // the player navigated away while it was generating
   session = { mode: 'endless', level };
   sound.setTheme(9);
   game.start(level, runOpts('endless', ENDLESS_WORLD));
@@ -341,7 +376,7 @@ function finishSession(r) {
       st.className = '';
       if (res.total & bit) {
         setTimeout(() => {
-          st.className = `on ${res.stars & bit && res.newStars ? 'new' : ''}`;
+          st.className = `on ${res.added & bit ? 'new' : ''}`;
           sound.play('star', k);
         }, 300 + k * 260);
       }
@@ -603,7 +638,6 @@ async function boot() {
   await document.fonts?.ready;
   startDemo();
   go('screen-title', { push: false });
-  if (ui.renderDailyModal(save, today())) setTimeout(() => ($('#modal-daily').hidden = false), 700);
   if ('serviceWorker' in navigator && location.protocol !== 'file:') {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }

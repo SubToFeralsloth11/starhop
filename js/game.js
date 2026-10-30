@@ -52,6 +52,12 @@ export class Game {
     this.fx.clear();
     this.demoLaunchAt = -1;
     this.ended = false;
+    this.launchT = null; // sim time of this attempt's first launch: the level clock starts here
+  }
+
+  /** Seconds since the first launch of this attempt (0 while still waiting on the start planet). */
+  elapsed() {
+    return this.launchT == null ? 0 : this.s.t - this.launchT;
   }
 
   stop() {
@@ -86,9 +92,22 @@ export class Game {
     const launch = this.queued && s.mode === 'orbit';
     this.queued = false;
     step(this.level, s, launch);
+    if (launch && this.launchT == null) this.launchT = s.t - DT;
     for (const e of s.ev) this.handle(e);
     s.ev.length = 0;
+    // The trail samples simulation ticks, so its length in time is the same at any refresh rate.
+    if (s.mode !== 'dead') {
+      this.trail.push({ x: s.x, y: s.y, a: this.heading() });
+      if (this.trail.length > TRAIL_LEN) this.trail.shift();
+    } else if (this.trail.length) this.trail.shift();
     if (this.opts.mode === 'endless') this.feedEndless();
+  }
+
+  heading() {
+    const s = this.s;
+    if (s.mode === 'fly') return Math.atan2(s.vy, s.vx);
+    const d = launchDir(s);
+    return Math.atan2(d.y, d.x);
   }
 
   autopilot() {
@@ -116,7 +135,7 @@ export class Game {
       this.hooks.applyChunk(level, chunk);
       syncState(level, this.s);
       this.chunkPending = false;
-    });
+    }, (err) => console.error(err)); // A failed chunk leaves the run parked on its top planet.
   }
 
   handle(e) {
@@ -211,7 +230,7 @@ export class Game {
       return;
     }
     this.ended = true;
-    this.hooks.onEnd({ mode: this.opts.mode, won: s.mode === 'won', s, attempts: this.attempts, time: s.t - (this.level.t0 || 0) });
+    this.hooks.onEnd({ mode: this.opts.mode, won: s.mode === 'won', s, attempts: this.attempts, time: this.elapsed() });
   }
 
   shipPose() {
@@ -221,22 +240,12 @@ export class Game {
     const jump = Math.hypot(s.x - this.prevX, s.y - this.prevY) > 60;
     const x = jump ? s.x : this.prevX + (s.x - this.prevX) * a;
     const y = jump ? s.y : this.prevY + (s.y - this.prevY) * a;
-    let ang;
-    if (s.mode === 'fly') ang = Math.atan2(s.vy, s.vx);
-    else {
-      const d = launchDir(s);
-      ang = Math.atan2(d.y, d.x);
-    }
-    return { x, y, ang };
+    return { x, y, ang: this.heading() };
   }
 
   render(dt, time) {
     const s = this.s;
     const pose = this.shipPose();
-    if (!this.paused && s.mode !== 'dead') {
-      this.trail.push({ x: pose.x, y: pose.y, a: pose.ang });
-      if (this.trail.length > TRAIL_LEN) this.trail.shift();
-    } else if (s.mode === 'dead' && this.trail.length) this.trail.shift();
     const target = pose.y - this.r.viewH * 0.14;
     this.cam += (target - this.cam) * (1 - Math.exp(-dt * 4.5));
     this.r.draw({
@@ -261,7 +270,7 @@ export class Game {
         maxPi: s.maxPi,
         shards: s.shards,
         shardCount: this.level.shards.length,
-        time: s.t - (this.level.t0 || 0),
+        time: this.elapsed(),
         par: this.level.par,
         attempts: this.attempts,
         shields: s.shields,

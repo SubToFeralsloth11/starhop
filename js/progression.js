@@ -74,22 +74,44 @@ export function defaultSave() {
   };
 }
 
-/** Merge a parsed save onto defaults so missing/new fields never crash. Invalid data yields defaults. */
+const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+const count = (v) => (Number.isInteger(v) && v >= 0 ? v : 0);
+
+function cleanLevels(raw) {
+  const out = {};
+  if (!isObj(raw)) return out;
+  for (const [key, r] of Object.entries(raw)) {
+    if (!/^\d+-\d+$/.test(key) || !isObj(r) || !Number.isInteger(r.stars) || r.stars < 1 || r.stars > 7) continue;
+    out[key] = { stars: r.stars, best: Number.isFinite(r.best) && r.best >= 0 ? r.best : null, clears: Math.max(1, count(r.clears)) };
+  }
+  return out;
+}
+
+/**
+ * Merge a parsed save onto defaults, field by field, so missing, new or corrupted fields never crash
+ * the game. Anything that cannot be read falls back to its default; valid progress is kept.
+ */
 export function normalizeSave(raw) {
   const base = defaultSave();
-  if (!raw || typeof raw !== 'object' || raw.v !== SAVE_VERSION) return base;
-  const out = { ...base, ...raw };
-  out.stats = { ...base.stats, ...(raw.stats || {}) };
-  out.daily = { ...base.daily, ...(raw.daily || {}) };
-  out.settings = { ...base.settings, ...(raw.settings || {}) };
-  out.upgrades = { ...base.upgrades, ...(raw.upgrades || {}) };
-  out.levels = raw.levels && typeof raw.levels === 'object' ? raw.levels : {};
-  out.claimed = raw.claimed && typeof raw.claimed === 'object' ? raw.claimed : {};
-  out.ships = Array.isArray(raw.ships) && raw.ships.includes('comet') ? raw.ships : ['comet'];
-  out.trails = Array.isArray(raw.trails) && raw.trails.includes('basic') ? raw.trails : ['basic'];
-  if (!out.ships.includes(out.ship)) out.ship = 'comet';
-  if (!out.trails.includes(out.trail)) out.trail = 'basic';
-  if (!Number.isFinite(out.dust) || out.dust < 0) out.dust = 0;
+  if (!isObj(raw) || raw.v !== SAVE_VERSION) return base;
+  const out = base;
+  out.dust = Number.isFinite(raw.dust) && raw.dust >= 0 ? Math.floor(raw.dust) : 0;
+  out.levels = cleanLevels(raw.levels);
+  if (isObj(raw.stats)) for (const k in base.stats) out.stats[k] = count(raw.stats[k]);
+  if (isObj(raw.settings)) for (const k in base.settings) if (typeof raw.settings[k] === 'boolean') out.settings[k] = raw.settings[k];
+  for (const up of UPGRADES) out.upgrades[up.id] = Math.min(up.prices.length, count(raw.upgrades?.[up.id]));
+  if (isObj(raw.claimed)) for (const a of ACHIEVEMENTS) if (raw.claimed[a.id] === true) out.claimed[a.id] = true;
+  if (isObj(raw.daily)) {
+    const day = (v) => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null);
+    out.daily = { lastClaim: day(raw.daily.lastClaim), streak: count(raw.daily.streak), challengeDone: day(raw.daily.challengeDone) };
+  }
+  const known = (list, ids) => ids.filter((id, i) => list.some((x) => x.id === id) && ids.indexOf(id) === i);
+  if (Array.isArray(raw.ships)) out.ships = known(SHIPS, ['comet', ...raw.ships]);
+  if (Array.isArray(raw.trails)) out.trails = known(TRAILS, ['basic', ...raw.trails]);
+  out.ship = out.ships.includes(raw.ship) ? raw.ship : 'comet';
+  out.trail = out.trails.includes(raw.trail) ? raw.trail : 'basic';
+  out.tutorialDone = raw.tutorialDone === true;
+  out.lastWorld = Number.isInteger(raw.lastWorld) && raw.lastWorld >= 1 && raw.lastWorld <= WORLDS.length ? raw.lastWorld : 1;
   return out;
 }
 
@@ -183,7 +205,7 @@ function earn(save, amount) {
 /**
  * Record a finished campaign level. Stars accumulate across runs (best of each kind is kept).
  * result: { world, index, shards (count), time, par, hops }
- * Returns { stars (this run bitmask), newStars (count), total (bitmask after), dust, breakdown }.
+ * Returns { stars (this run bitmask), added (newly owned bitmask), newStars (count), total (bitmask after), dust, breakdown }.
  */
 export function recordClear(save, result) {
   const { world, index, shards, time, par, hops } = result;
@@ -206,7 +228,7 @@ export function recordClear(save, result) {
   save.stats.clears++;
   save.stats.hops += hops;
   save.stats.shards += shards;
-  return { stars: bits, newStars, total: merged, dust, breakdown };
+  return { stars: bits, added: merged & ~prev.stars, newStars, total: merged, dust, breakdown };
 }
 
 /** Record a failed attempt (crash). Hops and shards from the attempt still count toward stats. */
