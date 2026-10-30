@@ -7,7 +7,7 @@ A one-tap orbit-hopping space game for phones (and desktops). Your ship circles 
 - 250 levels across 10 worlds, each adding a mechanic: drifting planets, asteroids, laser gates, crumbling planets, black holes, wormholes, everything at once, then two bonus worlds with giant gravity planets and bouncy walls. Level 25 of every world is a boss.
 - 3 stars per level (clear, all star shards, under par). Stars unlock worlds. Stardust coins and one gold shard per world hide on riskier lines.
 - Stardust buys 12 ships (each with a perk), paint jobs, trails and 3 upgrades (Magnet, Guide, Shield). Find all ten gold shards for a secret ship.
-- Daily missions, pilot levels, star chests, mutator medals (Mirror, Turbo, Blind), a codex, 43 trophies, a 7-day login streak and Ascension (New Game+).
+- Daily missions, pilot levels, star chests, mutator medals (Mirror, Turbo, Blind), a codex, 44 trophies, a 7-day login streak and Ascension (New Game+).
 - Modes: daily challenge, weekly event, Shard Hunt, Endless, Zen, Time Attack and Pass & Play.
 - Best-run ghosts, hint paths after five failed attempts, near-miss slow motion and save codes to move progress between devices.
 - Installable PWA that works offline. Synthesized music and sound, no asset downloads.
@@ -16,7 +16,7 @@ Controls: tap / click / Space or Enter to launch; keep holding to boost. ⟲ or 
 
 ## How levels are made
 
-Levels are procedurally generated and **proven beatable**: `js/solver.js` plays each level with the real simulation (`js/sim.js`) and only accepts launch windows at least 0.1 s wide, starting 0.2 s after landing. Each hop is also re-checked as if the player arrived 0.8 s and 1.7 s later than the bot did. Coins and gold shards are placed on launch windows the solver did not take, and only where the solver can still finish the level afterwards. Campaign levels are generated once into `data/levels.json`; the daily challenge, weekly stages, shard hunts and endless/zen chunks are generated in a Web Worker at runtime.
+Levels are procedurally generated and **proven beatable**: `js/solver.js` plays each level with the real simulation (`js/sim.js`) and only accepts launch windows at least 0.1 s wide, starting 0.2 s after landing. Each hop is also re-checked as if the player arrived 0.8 s and 1.7 s later than the bot did. No planet is a dead end: a ship parked on any planet at six sampled arrival times and orbit angles, in either direction, must get a launch window (2 frames wider than the minimum) to a higher planet within 10 s before anything kills it; wormholes that would strand a planet are not placed, and the densest campaign layouts that cannot pass are rebuilt a notch gentler. Coins and gold shards are placed on launch windows the solver did not take, and only where the solver can still finish the level afterwards. Campaign levels are generated once into `data/levels.json`; the daily challenge, weekly stages, shard hunts and endless/zen chunks are generated in a Web Worker at runtime.
 
 ## Development
 

@@ -249,37 +249,49 @@ function addMoon(rng, level, p, diff, f) {
   });
 }
 
-/** Orbit state parked on planet `i` at time `t`, circling in direction `dir`, as if it just arrived. */
-function parkedState(level, i, t, dir) {
+/** Orbit state parked on planet `i` at time `t` and orbit angle `ang`, circling in direction `dir`, as if it just arrived. */
+function parkedState(level, i, t, ang, dir) {
   const s = createState(level);
   const p = level.planets[i];
   s.t = t;
   s.pi = i;
   s.maxPi = i;
   s.dir = dir;
-  s.ang = -Math.PI / 2;
+  s.ang = ang;
   const at = planetPos(p, t);
-  s.x = at.x + p.orbit * Math.cos(s.ang);
-  s.y = at.y + p.orbit * Math.sin(s.ang);
+  s.x = at.x + p.orbit * Math.cos(ang);
+  s.y = at.y + p.orbit * Math.sin(ang);
   if (p.crumble) s.crumbleAt[i] = t + p.crumble;
   return s;
 }
 
-const ESCAPE_TIMES = [0, 2.6, 5.3, 8.1];
-const ESCAPE_WAIT = 15; // seconds a stranded player may wait for a window before we call it a dead end
+// Sampled arrivals: [time, orbit angle] pairs spread over hazard periods and around the ring.
+const ESCAPE_POSES = [
+  [0, -Math.PI / 2],
+  [1.7, Math.PI / 6],
+  [3.4, (5 * Math.PI) / 6],
+  [5.2, Math.PI / 2],
+  [6.9, -Math.PI / 6],
+  [8.6, Math.PI],
+];
+// Each sampled arrival must reach a window within this many seconds. It is kept well under the
+// 15 s the docs promise because arrivals between the samples can take a few seconds longer.
+const ESCAPE_WAIT = 10;
 // Escape windows must be 2 frames wider than the solver minimum: a window that is barely wide enough
 // from one orbit phase can shrink by a frame from another, which would strand a bot (or a player).
 const ESCAPE_MIN_WINDOW = MIN_WINDOW + 2;
 
 /**
- * True if a player parked on any non-goal planet, at any of several times and in either orbit
- * direction, has a human-sized window to some higher planet before anything kills them. The
- * hop-by-hop checks in grow only cover the bot's own arrival times, and hazards added later (the
- * next band, wormholes) can otherwise strand a player who arrives at a different moment.
+ * True if a player parked on planet `i` at each sampled arrival pose, in either orbit direction, gets
+ * a human-sized window to some higher planet before anything kills them. The hop-by-hop checks in
+ * grow only cover the bot's own arrival times, and hazards added later (the next band, wormholes)
+ * can otherwise strand a player who arrives at a different moment.
  */
 function escapable(level, i) {
-  for (const t of ESCAPE_TIMES) {
-    for (const dir of [1, -1]) if (!findWindows(level, parkedState(level, i, t, dir), 1, { maxWait: ESCAPE_WAIT, minWindow: ESCAPE_MIN_WINDOW }).length) return false;
+  for (const [t, ang] of ESCAPE_POSES) {
+    for (const dir of [1, -1]) {
+      if (!findWindows(level, parkedState(level, i, t, ang, dir), 1, { maxWait: ESCAPE_WAIT, minWindow: ESCAPE_MIN_WINDOW }).length) return false;
+    }
   }
   return true;
 }
