@@ -147,10 +147,14 @@ export class Renderer {
     sky.addColorStop(1, theme.sky[1]);
     ctx.fillStyle = sky;
     ctx.fillRect(0, 0, w, h);
-    // Whole-pixel offset with a 1px overlap so the two tiles never leave a hairline seam.
-    const ny = Math.round(mod(-camY * this.scale * 0.08, h));
-    ctx.drawImage(this.nebula, 0, ny - h, w, h + 1);
-    ctx.drawImage(this.nebula, 0, ny, w, h);
+    // Tiles abut exactly on whole device pixels: no gap and no doubled (brighter) overlap row.
+    const H = this.canvas.height;
+    const W = this.canvas.width;
+    const ny = Math.round(mod(-camY * this.scale * 0.08 * dpr, H));
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.drawImage(this.nebula, 0, ny - H, W, H);
+    ctx.drawImage(this.nebula, 0, ny, W, H);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     for (const layer of this.starLayers) {
       const off = -camY * this.scale * layer.depth;
       for (const st of layer.stars) {
