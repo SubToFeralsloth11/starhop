@@ -1,4 +1,4 @@
-// Runs daily-challenge and endless-chunk generation off the main thread (falls back to the main
+// Runs daily, weekly, shard-hunt and endless-chunk generation off the main thread (falls back to the main
 // thread when module workers are unavailable).
 
 export class GenClient {
@@ -52,7 +52,15 @@ export class GenClient {
     return this.request({ type: 'daily', dateKey });
   }
 
-  endless(seed, chunk, start) {
-    return this.request({ type: 'endless', seed, chunk, start });
+  weekly(weekKey, stage) {
+    return this.request({ type: 'weekly', weekKey, stage });
+  }
+
+  hunt(dateKey) {
+    return this.request({ type: 'hunt', dateKey });
+  }
+
+  endless(seed, chunk, start, zen = false) {
+    return this.request({ type: 'endless', seed, chunk, start, zen });
   }
 }
