@@ -202,6 +202,8 @@ export class Game {
     }
     if (this.opts.mode === 'endless' || this.opts.mode === 'zen') this.feedEndless();
     if (this.hint && s.mode === 'fly') this.hint.active = false;
+    // Missed the cue while still orbiting: point at the next window instead.
+    if (this.hint && s.mode === 'orbit' && this.tickN > this.hint.at + 3) this.computeHint();
   }
 
   tickGhost() {
