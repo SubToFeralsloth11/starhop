@@ -1480,7 +1480,7 @@ body.reduced *::after {
 
 .boss-name {
   position: absolute;
-  top: -26px;
+  bottom: -26px;
   white-space: nowrap;
   font-style: normal;
   font-size: 14px;
@@ -1505,6 +1505,10 @@ body.reduced *::after {
   font-size: 11px;
   color: #7dffc4;
   letter-spacing: 1px;
+}
+
+.level-node.boss .medal-row {
+  bottom: -42px;
 }
 
 .map-ship {
@@ -1867,4 +1871,11 @@ body.reduced *::after {
   40% {
     transform: scale(1.25) rotate(-6deg);
   }
+}
+
+/* While a modal card is open, notifications move to the bottom so they never cover it. */
+#ui:has(.modal:not([hidden])) #toasts {
+  top: auto;
+  bottom: calc(var(--safe-b) + 16px);
+  flex-direction: column-reverse;
 }

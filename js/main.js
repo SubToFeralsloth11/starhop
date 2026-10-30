@@ -93,6 +93,7 @@ const game = new Game(renderer, sound, fx, {
   onCrash: (s, g) => onCrash(s, g),
   onFirstLaunch: () => {
     $('#tutorial').hidden = true;
+    $('#hud-bottom').hidden = false;
     if (!save.tutorialDone) {
       save.tutorialDone = true;
       persist();
@@ -163,8 +164,11 @@ function levelUps(ups) {
 
 function discoverLevel(level) {
   const fresh = discover(save, codexKinds(level));
-  for (const c of fresh) ui.toast(`📖 New codex entry: <b>${c.name}</b> · +20`, 2600);
-  if (fresh.length) persist();
+  if (!fresh.length) return;
+  // One toast per batch so a first level does not bury the screen in notifications.
+  const names = fresh.map((c) => c.name).join(', ');
+  ui.toast(fresh.length === 1 ? `📖 New codex entry: <b>${names}</b> · +20` : `📖 ${fresh.length} new codex entries · +${20 * fresh.length}<br><small>${names}</small>`, 2600);
+  persist();
 }
 
 /* ---------------- Navigation ---------------- */
@@ -431,6 +435,8 @@ function playLevel(w, i, mutator = 0) {
   const mut = MUTATORS.find((m) => m.bit === mutator);
   enterGame(`${w}-${i}${mut ? ` · ${mut.name}` : ''}${level.boss ? ' · BOSS' : ''}`);
   $('#tutorial').hidden = !(w === 1 && i === 1 && !save.tutorialDone);
+  // The tutorial hint sits where the boost/flip controls go; they appear after the first launch.
+  $('#hud-bottom').hidden = !$('#tutorial').hidden;
   if (level.boss) ui.toast(`♛ Boss: <b>${WORLDS[w - 1].boss}</b>`, 2200);
 }
 
