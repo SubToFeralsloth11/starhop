@@ -399,6 +399,8 @@ function enterGame(label) {
   if (['weekly', 'hunt', 'zen', 'versus'].includes(session.mode)) history.push('screen-modes');
   if (session.mode === 'weekly') history.push('screen-weekly');
   ui.showScreen(null);
+  // A run can start while the title's delayed daily-reward prompt is pending; it waits for the next title visit.
+  $('#modal-daily').hidden = true;
   screen = 'game';
   hudKey = '';
   $('#hud').hidden = false;

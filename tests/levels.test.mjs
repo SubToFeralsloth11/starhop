@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { applyEndlessChunk, createEndless, endlessChunk, generateDaily, generateHunt, generateWeekly, goldIndex, mirrorLevel, HUNT_SHARDS } from '../js/levels.js';
-import { cloneState, createState, step } from '../js/sim.js';
+import { cloneState, createState, step, syncState } from '../js/sim.js';
 import { findWindows } from '../js/solver.js';
 import { buildAll } from '../tools/build-levels.mjs';
 import { solve } from '../js/solver.js';
@@ -168,5 +168,35 @@ test('zen chunks are always hazard-free', () => {
     assert.ok(chunk.calm);
     assert.equal(chunk.asteroids.length + chunk.lasers.length + chunk.holes.length + chunk.warps.length, 0);
     applyEndlessChunk(level, chunk);
+  }
+});
+
+// Plays endless like the game does: chunks stream in five planets ahead, and the bot always takes its
+// first launch window. A player must never be stranded on a planet with no way out.
+test('a bot that always takes the first window climbs endless runs without getting stranded', () => {
+  for (const seed of [6, 7, 4242]) {
+    const level = createEndless(seed);
+    const s = createState(level);
+    let target = null;
+    let key = '';
+    while (s.pi < 40 && s.mode !== 'dead' && s.t < 400) {
+      while (level.planets.length - 1 - s.maxPi <= 5) applyEndlessChunk(level, endlessChunk(seed, level.chunks, level.planets.at(-1)));
+      syncState(level, s);
+      if (s.mode === 'orbit') {
+        const k = `${s.launches}:${level.planets.length}`;
+        if (k !== key) {
+          key = k;
+          const w = findWindows(level, s, 1, { maxWait: 15 });
+          target = w.length ? s.t + w[0].k / 60 : Infinity;
+        }
+        assert.notEqual(target, Infinity, `seed ${seed}: stranded on planet ${s.pi}`);
+        if (s.t >= target - 1e-9) {
+          step(level, s, true);
+          continue;
+        }
+      }
+      step(level, s, false);
+    }
+    assert.ok(s.pi >= 40, `seed ${seed}: stopped at planet ${s.pi} (${s.mode} ${s.cause ?? ''})`);
   }
 });

@@ -5,12 +5,12 @@
 // Campaign levels are generated ahead of time by tools/build-levels.mjs into data/levels.json;
 // everything else is generated at runtime in js/genworker.js.
 import { hashSeed, makeRng } from './rng.js';
-import { WORLD_W, cloneState, createState, step, syncState } from './sim.js';
-import { findWindows, solve, traceRoute } from './solver.js';
+import { WORLD_W, cloneState, createState, planetPos, step, syncState } from './sim.js';
+import { MIN_WINDOW, findWindows, solve, traceRoute } from './solver.js';
 import { LEVELS_PER_WORLD, WORLDS } from './worlds.js';
 
 const MAX_ATTEMPTS = 40;
-const HOP_TRIES = 14;
+const HOP_TRIES = 30;
 const ARRIVAL_OFFSETS = [0.8, 1.7];
 export const ENDLESS_HOPS = 6;
 const TAU = Math.PI * 2;
@@ -249,6 +249,46 @@ function addMoon(rng, level, p, diff, f) {
   });
 }
 
+/** Orbit state parked on planet `i` at time `t`, circling in direction `dir`, as if it just arrived. */
+function parkedState(level, i, t, dir) {
+  const s = createState(level);
+  const p = level.planets[i];
+  s.t = t;
+  s.pi = i;
+  s.maxPi = i;
+  s.dir = dir;
+  s.ang = -Math.PI / 2;
+  const at = planetPos(p, t);
+  s.x = at.x + p.orbit * Math.cos(s.ang);
+  s.y = at.y + p.orbit * Math.sin(s.ang);
+  if (p.crumble) s.crumbleAt[i] = t + p.crumble;
+  return s;
+}
+
+const ESCAPE_TIMES = [0, 2.6, 5.3, 8.1];
+const ESCAPE_WAIT = 15; // seconds a stranded player may wait for a window before we call it a dead end
+// Escape windows must be 2 frames wider than the solver minimum: a window that is barely wide enough
+// from one orbit phase can shrink by a frame from another, which would strand a bot (or a player).
+const ESCAPE_MIN_WINDOW = MIN_WINDOW + 2;
+
+/**
+ * True if a player parked on any non-goal planet, at any of several times and in either orbit
+ * direction, has a human-sized window to some higher planet before anything kills them. The
+ * hop-by-hop checks in grow only cover the bot's own arrival times, and hazards added later (the
+ * next band, wormholes) can otherwise strand a player who arrives at a different moment.
+ */
+function escapable(level, i) {
+  for (const t of ESCAPE_TIMES) {
+    for (const dir of [1, -1]) if (!findWindows(level, parkedState(level, i, t, dir), 1, { maxWait: ESCAPE_WAIT, minWindow: ESCAPE_MIN_WINDOW }).length) return false;
+  }
+  return true;
+}
+
+function noDeadEnds(level) {
+  for (let i = 0; i < level.planets.length - 1; i++) if (!escapable(level, i)) return false;
+  return true;
+}
+
 function addWarps(rng, level, f) {
   const bands = [];
   for (let i = 0; i < level.planets.length - 1; i++) {
@@ -267,8 +307,9 @@ function addWarps(rng, level, f) {
       const by = rng.range(B.top + 34, B.bottom - 34);
       if (!farFromPlanets(level.planets, ax, ay, 40) || !farFromPlanets(level.planets, bx, by, 40)) continue;
       if (level.holes.some((h) => Math.hypot(h.x - ax, h.y - ay) < 120 || Math.hypot(h.x - bx, h.y - by) < 120)) continue;
-      level.warps.push({ ax, ay, bx, by, r: 30 });
-      break;
+      level.warps.push({ ax: q(ax), ay: q(ay), bx: q(bx), by: q(by), r: 30 });
+      if (noDeadEnds(level)) break;
+      level.warps.pop();
     }
   }
 }
@@ -322,7 +363,9 @@ function grow(rng, level, hops, diff, f, lastIsGoal) {
       // Bounce worlds prefer hops whose first launch window is a bank shot off a wall.
       const wantBank = level.bounce && i % 2 === 1 && tries < HOP_TRIES - 4;
       const banked = !wantBank || (found.length && found[0].state.bounces > s.bounces);
-      if (found.length && banked && ARRIVAL_OFFSETS.every((o) => findWindows(level, delayed(level, s, o), 1).length)) {
+      // The previous planet's surroundings are now final (apart from wormholes and distant gravity),
+      // so a player arriving there at any moment must be able to get out.
+      if (found.length && banked && ARRIVAL_OFFSETS.every((o) => findWindows(level, delayed(level, s, o), 1).length) && escapable(level, level.planets.length - 2)) {
         s = found[0].state;
         ok = true;
       } else {
@@ -336,7 +379,7 @@ function grow(rng, level, hops, diff, f, lastIsGoal) {
   }
   addWarps(rng, level, f);
   quantize(level);
-  return true;
+  return noDeadEnds(level);
 }
 
 function startPlanet() {
@@ -464,12 +507,22 @@ function buildValidated(seedParts, hops, diff, mix, accept = () => true, finish 
 export function generateLevel(world, index) {
   const { local, diff, hops } = campaignDifficulty(world, index);
   const boss = index === LEVELS_PER_WORLD;
-  const accept = (l, sol) => showsWorld(world, l) && (!sol || world !== 10 || sol.end.bounces > 0);
+  // Bosses always get a drifting portal (makePlanet only drifts it when there is room).
+  const accept = (l, sol) => showsWorld(world, l) && (!boss || l.planets.at(-1).mx > 0) && (!sol || world !== 10 || sol.end.bounces > 0);
   const gold = index === goldIndex(world);
   // The gold level must actually get its gold shard; otherwise try the next layout.
   const finish = (l, sol) => addExtras(l, sol, ['level', world, index], gold) && (!gold || !!l.gold);
-  const level = buildValidated(['level', world, index], hops, diff, boss ? bossMix(world) : featureMix(world, local), accept, finish);
-  if (!level) throw new Error(`level ${world}-${index}: no solvable layout in ${MAX_ATTEMPTS} attempts`);
+  const mix = boss ? bossMix(world) : featureMix(world, local);
+  // The densest layouts sometimes cannot meet every fairness check; then the same mix is retried a
+  // notch gentler (tighter gaps relaxed, slower hazards) instead of shipping a stranding level.
+  let level = null;
+  for (let soften = 0; soften <= 3 && !level; soften++) {
+    // From the third try on, hazard densities drop too (flags such as boss/warp counts are kept).
+    const k = soften >= 2 ? 1 - (soften - 1) * 0.2 : 1;
+    const softMix = Object.fromEntries(Object.entries(mix).map(([key, v]) => [key, ['warp', 'boss', 'goalMove', 'bounce'].includes(key) ? v : v * k]));
+    level = buildValidated(soften ? ['level', world, index, 'soft', soften] : ['level', world, index], hops, diff * (1 - soften * 0.15), softMix, accept, finish);
+  }
+  if (!level) throw new Error(`level ${world}-${index}: no solvable layout`);
   if (boss) level.boss = true;
   return Object.assign(level, { id: `${world}-${index}`, kind: 'level', world, index });
 }
@@ -647,3 +700,4 @@ export function applyEndlessChunk(level, data) {
 
 export const TOTAL_LEVELS = WORLDS.length * LEVELS_PER_WORLD;
 export { LEVELS_PER_WORLD };
+
