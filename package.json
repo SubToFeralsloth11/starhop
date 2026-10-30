@@ -1,0 +1,11 @@
+{
+  "name": "starhop",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/",
+    "levels": "node tools/build-levels.mjs",
+    "icons": "node tools/make-icons.mjs",
+    "serve": "python3 -m http.server 8080"
+  }
+}
