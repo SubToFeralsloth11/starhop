@@ -68,7 +68,8 @@ export function findWindows(level, s, limit, opts = {}) {
 
 /**
  * Depth-first search over launch windows (with limited backtracking).
- * Returns { ok, time, route } where route[i] = { state, k } replays the solution.
+ * opts.from: start from this state instead of the level start.
+ * Returns { ok, time, route, end } where route[i] = { state, k } replays the solution.
  */
 export function solve(level, opts = {}) {
   const ctx = {
@@ -77,11 +78,11 @@ export function solve(level, opts = {}) {
     opts,
     deepest: 0,
   };
-  const s0 = createState(level);
+  const s0 = opts.from || createState(level);
   const route = [];
   const end = dfs(level, s0, route, ctx, 0);
   if (!end) return { ok: false, deepest: ctx.deepest, route: [] };
-  return { ok: true, time: end.t - s0.t, route };
+  return { ok: true, time: end.t - s0.t, route, end };
 }
 
 function dfs(level, s, route, ctx, depth) {
