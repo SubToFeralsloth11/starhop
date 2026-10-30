@@ -327,6 +327,7 @@ function finishSession(r) {
   score.hidden = true;
   $('#btn-result-next').hidden = true;
   $('#btn-result-retry').hidden = false;
+  $('#btn-result-map').textContent = session.mode === 'level' ? 'Map' : 'Menu';
 
   if (session.mode === 'level') {
     const { world, index, level } = session;

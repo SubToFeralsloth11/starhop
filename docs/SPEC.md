@@ -22,15 +22,15 @@
 - **Launch**: tap/click anywhere on the play area, or press Space/Enter. The ship leaves along the tangent at a constant speed. A dotted aim line previews the straight-line path (length set by the *Guide* upgrade).
 - **Capture**: entering another planet's orbit ring captures the ship into that orbit (+1 hop).
 - **Goal**: the last planet of each level is a swirling portal; capturing it clears the level.
-- **Failure**: leaving the playfield sideways, drifting in space for more than 4 s, or touching a hazard. Failure restarts the level fast (≤ 1 s), counting attempts. A Shield charge (upgrade) absorbs one hazard hit.
+- **Failure**: leaving the playfield sideways, drifting in space for more than 2.5 s, or touching a hazard. Failure restarts the level fast (≤ 1 s), counting attempts. A Shield charge (upgrade) absorbs one asteroid or laser hit; black-hole cores and crumbling planets are always fatal. In endless mode a failure ends the run.
 - **Star shards**: 3 per level, placed on flight paths the solver actually flew. Pickup radius grows with the *Magnet* upgrade.
-- **Stars per level (max 3)**: ★ cleared, ★ all 3 shards collected in that run, ★ cleared within par time. Best result is kept.
+- **Stars per level (max 3)**: ★ cleared, ★ all 3 shards collected in one run, ★ cleared within par time. Each star is kept once earned, so they can be collected over separate runs.
 
 ## Worlds (each adds one mechanic; later worlds mix earlier ones)
 
 1. **Nebula Nursery** — static planets.
 2. **Drift Belt** — planets that drift back and forth.
-3. **Asteroid Alley** — moving asteroids (also hit you while orbiting).
+3. **Asteroid Alley** — asteroids streak across the gaps and circle planets, crossing launch paths.
 4. **Laser Lattice** — laser gates that switch on and off.
 5. **Crumble Cluster** — crumbling planets that break a few seconds after you land.
 6. **Event Horizon** — black holes that bend your flight path and kill at the core.

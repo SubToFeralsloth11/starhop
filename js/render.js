@@ -106,8 +106,9 @@ export class Renderer {
     sky.addColorStop(1, theme.sky[1]);
     ctx.fillStyle = sky;
     ctx.fillRect(0, 0, w, h);
-    const ny = mod(-camY * this.scale * 0.08, h);
-    ctx.drawImage(this.nebula, 0, ny - h, w, h);
+    // Whole-pixel offset with a 1px overlap so the two tiles never leave a hairline seam.
+    const ny = Math.round(mod(-camY * this.scale * 0.08, h));
+    ctx.drawImage(this.nebula, 0, ny - h, w, h + 1);
     ctx.drawImage(this.nebula, 0, ny, w, h);
     for (const layer of this.starLayers) {
       const off = -camY * this.scale * layer.depth;

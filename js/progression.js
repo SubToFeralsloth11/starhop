@@ -66,7 +66,7 @@ export function defaultSave() {
     trail: 'basic',
     upgrades: { magnet: 0, guide: 0, shield: 0 },
     claimed: {}, // achievement id -> true
-    stats: { hops: 0, shards: 0, clears: 0, crashes: 0, launches: 0, endlessBest: 0, dailyClears: 0, bestStreak: 0, dustEarned: 0 },
+    stats: { hops: 0, shards: 0, clears: 0, crashes: 0, endlessBest: 0, dailyClears: 0, bestStreak: 0, dustEarned: 0 },
     daily: { lastClaim: null, streak: 0, challengeDone: null },
     settings: { music: true, sfx: true, haptics: true, reduced: false },
     tutorialDone: false,
