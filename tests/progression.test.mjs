@@ -128,8 +128,10 @@ test('the streak cycles back to day one rewards after a week', () => {
 
 test('daily challenge pays its reward only on the first clear of the day', () => {
   const s = defaultSave();
-  assert.deepEqual(recordDaily(s, '2026-04-01', 9), { dust: DAILY_CHALLENGE_REWARD, first: true });
-  assert.deepEqual(recordDaily(s, '2026-04-01', 9), { dust: 0, first: false });
+  const first = recordDaily(s, '2026-04-01', 9);
+  assert.deepEqual([first.dust, first.first], [DAILY_CHALLENGE_REWARD, true]);
+  const again = recordDaily(s, '2026-04-01', 9);
+  assert.deepEqual([again.dust, again.first], [0, false]);
   assert.equal(recordDaily(s, '2026-04-02', 9).first, true);
   assert.equal(s.stats.dailyClears, 2);
 });
@@ -191,7 +193,174 @@ test('corrupted fields inside an otherwise valid save are dropped without losing
 
 test('save records for levels that do not exist are dropped and never count as stars', () => {
   const rec = { stars: 7, best: 3, clears: 1 };
-  const s = normalizeSave({ v: 1, levels: { '99-99': rec, '0-0': rec, '1-26': rec, '9-1': rec, '01-1': rec, '1-1': { stars: 6, clears: 1 }, '8-25': rec, '1-2': rec } });
-  assert.deepEqual(Object.keys(s.levels).sort(), ['1-2', '8-25']);
+  const s = normalizeSave({ v: 1, levels: { '99-99': rec, '0-0': rec, '1-26': rec, '11-1': rec, '01-1': rec, '1-1': { stars: 6, clears: 1 }, '10-25': rec, '1-2': rec } });
+  assert.deepEqual(Object.keys(s.levels).sort(), ['1-2', '10-25']);
   assert.equal(totalStars(s), 6);
+});
+
+import * as P from '../js/progression.js';
+
+const clear = (s, w, i, extra = {}) => P.recordClear(s, { world: w, index: i, shards: 0, time: 99, par: 10, hops: 5, date: '2026-04-01', ...extra });
+
+test('replaying one level pays full stardust three times a day, then less and less, and a new day resets it', () => {
+  const s = defaultSave();
+  const pays = [1, 2, 3, 4, 5, 6].map(() => clear(s, 1, 1).dust);
+  // First clear also pays the new-star bonus; replays 2-3 pay the same farmable amount.
+  assert.equal(pays[1], pays[2]);
+  assert.ok(pays[3] < pays[2] && pays[4] < pays[3] && pays[5] < pays[4]);
+  assert.ok(clear(s, 1, 1, { date: '2026-04-02' }).dust === pays[1], 'the next day pays in full again');
+  assert.ok(clear(s, 1, 2).dust > pays[5], 'other levels are not affected');
+});
+
+test('mutator clears earn a medal once and never change stars or best time', () => {
+  const s = defaultSave();
+  clear(s, 1, 1, { time: 5 });
+  const r = clear(s, 1, 1, { mutator: 1, time: 1, shards: 3 });
+  assert.equal(r.medal, true);
+  assert.equal(s.levels['1-1'].stars, P.STAR_CLEAR | P.STAR_PAR);
+  assert.equal(s.levels['1-1'].best, 5);
+  assert.equal(clear(s, 1, 1, { mutator: 1 }).medal, false);
+  assert.equal(clear(s, 1, 1, { mutator: 2 }).medal, true);
+  assert.equal(s.medals['1-1'], 3);
+});
+
+test('gold shards pay once each and finding every one unlocks the secret ship', () => {
+  const s = defaultSave();
+  assert.equal(P.buyItem(s, 'ship', 'aurum'), 'locked');
+  const first = clear(s, 1, 13, { gold: true });
+  assert.ok(first.goldNew);
+  assert.ok(!clear(s, 1, 13, { gold: true }).goldNew);
+  for (let w = 2; w < 10; w++) clear(s, w, 3, { gold: true });
+  assert.ok(!s.ships.includes('aurum'));
+  assert.ok(clear(s, 10, 8, { gold: true }).secret);
+  assert.ok(s.ships.includes('aurum'));
+});
+
+test('a fully starred world unlocks its aurora trail and menu theme', () => {
+  const s = defaultSave();
+  for (let i = 1; i <= 24; i++) clear(s, 2, i, { shards: 3, time: 1 });
+  assert.deepEqual(P.menuThemes(s), [0]);
+  const r = clear(s, 2, 25, { shards: 3, time: 1 });
+  assert.deepEqual(r.worldRewards, ['world2']);
+  assert.deepEqual(P.menuThemes(s), [0, 2]);
+});
+
+test('missions are the same for everyone on a date, progress from runs and pay once', () => {
+  const a = defaultSave();
+  const b = defaultSave();
+  assert.deepEqual(P.missionsFor(a, '2026-05-01'), P.missionsFor(b, '2026-05-01'));
+  const list = P.missionsFor(a, '2026-05-01');
+  assert.equal(new Set(list.map((m) => m.type)).size, 3);
+  const big = { mode: 'level', world: list.find((m) => m.world)?.world || 1, hops: 999, shards: 999, perfects: 999, coins: 999, boostT: 999, chains: 999, cleared: true, stars: 7, hits: 0, score: 999 };
+  for (let i = 0; i < 10; i++) P.trackMissions(a, '2026-05-01', big);
+  P.trackMissions(a, '2026-05-01', { ...big, mode: 'daily' });
+  P.trackMissions(a, '2026-05-01', { ...big, mode: 'endless' });
+  list.forEach((m, i) => {
+    assert.equal(m.progress, m.target, m.type);
+    const dust = a.dust;
+    assert.equal(P.claimMission(a, '2026-05-01', i).dust, m.reward);
+    assert.ok(a.dust >= dust + m.reward);
+    assert.equal(P.claimMission(a, '2026-05-01', i), null);
+  });
+  assert.notDeepEqual(P.missionsFor(a, '2026-05-02'), list, 'a new day brings new missions');
+});
+
+test('pilot XP levels up with escalating thresholds and pays a reward per level', () => {
+  const s = defaultSave();
+  s.ships.push('dart');
+  s.ship = 'dart'; // no XP perk
+  assert.deepEqual(P.pilotLevel(0), { level: 1, into: 0, need: 100, title: 'Cadet' });
+  const ups = P.addXp(s, 100 + 140 + 5);
+  assert.deepEqual(ups, [2, 3]);
+  assert.equal(s.dust, P.levelUpReward(2) + P.levelUpReward(3));
+  assert.equal(P.pilotLevel(s.xp).into, 5);
+});
+
+test('star chests: one per 25 stars earned, deterministic rewards, never more than earned', () => {
+  const s = defaultSave();
+  for (let i = 1; i <= 9; i++) clear(s, 1, i, { shards: 3, time: 1 });
+  assert.equal(P.chestsAvailable(s), 1);
+  const t = defaultSave();
+  for (let i = 1; i <= 9; i++) clear(t, 1, i, { shards: 3, time: 1 });
+  assert.deepEqual(P.openChest(s), P.openChest(t));
+  assert.equal(P.openChest(s), null);
+});
+
+test('ascension needs every star, resets the campaign but keeps the shop, and raises stardust', () => {
+  const s = defaultSave();
+  assert.equal(P.prestige(s), false);
+  for (let w = 1; w <= 10; w++) for (let i = 1; i <= 25; i++) clear(s, w, i, { shards: 3, time: 1 });
+  assert.equal(totalStars(s), P.TOTAL_STARS);
+  s.ships.push('dart');
+  const dustBefore = s.dust;
+  assert.equal(P.prestige(s), true);
+  assert.equal(totalStars(s), 0);
+  assert.ok(s.ships.includes('dart'));
+  assert.equal(s.dust, dustBefore);
+  assert.equal(P.prestigeDustMul(s), 1.25);
+  const plain = defaultSave();
+  assert.ok(clear(s, 1, 1, { date: '2026-09-09' }).dust > clear(plain, 1, 1, { date: '2026-09-09' }).dust);
+});
+
+test('save codes round-trip and reject tampering', () => {
+  const s = defaultSave();
+  clear(s, 1, 1, { shards: 3 });
+  s.dust = 1234;
+  const code = P.exportSave(s);
+  const back = P.importSave(code);
+  assert.equal(back.dust, 1234);
+  assert.deepEqual(back.levels, s.levels);
+  assert.equal(P.importSave(code.replace('STARHOP1:', 'STARHOP1:A')), null);
+  assert.equal(P.importSave('hello'), null);
+});
+
+test('weekly event stages must be played in order; finishing all five grants the week trail, a new week restarts', () => {
+  const s = defaultSave();
+  assert.equal(P.recordWeekly(s, '2026-W10', 1, 5).dust, 0, 'cannot skip stage 1');
+  for (let st = 0; st < 4; st++) assert.equal(P.recordWeekly(s, '2026-W10', st, 5).finished, false);
+  const fin = P.recordWeekly(s, '2026-W10', 4, 5);
+  assert.ok(fin.finished);
+  assert.equal(fin.trail, P.weeklyTrail('2026-W10'));
+  assert.ok(s.trails.includes(fin.trail));
+  assert.equal(P.recordWeekly(s, '2026-W10', 4, 5).dust, 0);
+  assert.equal(P.weeklyState(s, '2026-W11').stage, 0);
+  assert.equal(P.weekKey(new Date(2026, 0, 1)), '2026-W01');
+  assert.equal(P.weekKey(new Date(2027, 0, 1)), '2026-W53');
+});
+
+test('perks change the run options, paints cost stardust, and reward-only items cannot be bought', () => {
+  const s = defaultSave();
+  s.dust = 100000;
+  const base = P.runModifiers(s);
+  P.buyItem(s, 'ship', 'hammer');
+  P.equipItem(s, 'ship', 'hammer');
+  assert.equal(P.runModifiers(s).shields, base.shields + 1);
+  P.buyItem(s, 'ship', 'needle');
+  P.equipItem(s, 'ship', 'needle');
+  assert.ok(P.runModifiers(s).shipR > 0 && P.runModifiers(s).shipR < 9);
+  assert.equal(P.buyPaint(s, 'comet', 'ember'), null);
+  assert.equal(P.paintedShip(s, 'comet').color, P.PAINTS.find((p) => p.id === 'ember').color);
+  assert.equal(P.buyPaint(s, 'crown', 'ember'), 'locked');
+  assert.equal(P.buyItem(s, 'trail', 'world1'), 'locked');
+  assert.equal(P.buyItem(s, 'trail', 'helix'), 'locked');
+});
+
+test('new save fields that are corrupt fall back without losing the rest', () => {
+  const s = normalizeSave({
+    v: 1, dust: 50, gold: ['1-13', 'x', '1-13', '42-1'], medals: { '1-1': 3, '1-2': 99, nope: 1 }, xp: -5, prestige: 'lots',
+    missions: { date: '2026-01-01', list: [{ type: 'hops', target: 30, reward: 60, progress: 999 }, { type: 'bogus', target: 1, reward: 1 }] },
+    ghosts: { '1-1': { t: 3, l: [1, 2], f: [], b: [], o: {}, ship: 'comet' }, '1-2': { t: 'x' } },
+    weekly: { week: 'bad' }, codex: ['planet', 'planet', 'dragon'], paint: { comet: 'ember' }, menuTheme: 77,
+  });
+  assert.equal(s.dust, 50);
+  assert.deepEqual(s.gold, ['1-13']);
+  assert.deepEqual(s.medals, { '1-1': 3 });
+  assert.equal(s.xp, 0);
+  assert.equal(s.prestige, 0);
+  assert.deepEqual(s.missions.list.map((m) => [m.type, m.progress]), [['hops', 30]]);
+  assert.deepEqual(Object.keys(s.ghosts), ['1-1']);
+  assert.equal(s.weekly.week, null);
+  assert.deepEqual(s.codex, ['planet']);
+  assert.deepEqual(s.paint, {});
+  assert.equal(s.menuTheme, 0);
 });

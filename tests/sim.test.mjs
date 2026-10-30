@@ -181,3 +181,117 @@ test('magnet radius widens shard pickup', () => {
   assert.equal(fly(0), 0, '40 units away is out of base reach');
   assert.equal(fly(24), 1, 'magnet level 2 reaches it');
 });
+
+import { BOOST_MUL, nearMiss } from '../js/sim.js';
+
+/** A ship already flying straight up at x from y, after leaving planet 0. */
+function flying(lv, s, x, y, vx = 0, vy = -FLY_SPEED) {
+  Object.assign(s, { mode: 'fly', fromPi: 0, leftRing: true, x, y, vx, vy, flyT: 0 });
+  return s;
+}
+
+test('holding boost speeds the flight up until the fuel runs out, and landing refills it', () => {
+  const lv = level([planet(360, 0), planet(360, -900, { goal: true })]);
+  const a = flying(lv, createState(lv, { fuel: 0.5 }), 360, -150);
+  const b = flying(lv, createState(lv, { fuel: 0.5 }), 360, -150);
+  for (let i = 0; i < 6; i++) {
+    step(lv, a, false, true);
+    step(lv, b, false, false);
+  }
+  assert.ok(a.boosting);
+  assert.ok(Math.abs((a.y + 150) / (b.y + 150) - BOOST_MUL) < 1e-6, 'boosted ship covers BOOST_MUL times the distance');
+  for (let i = 0; i < 40; i++) step(lv, a, false, true);
+  assert.equal(a.fuel, 0);
+  assert.equal(a.boosting, false, 'no fuel, no boost');
+  const c = createState(lv, { fuel: 0.5 });
+  c.fuel = 0;
+  flying(lv, c, 360, -700);
+  for (let i = 0; i < 60 && c.mode === 'fly'; i++) step(lv, c, false);
+  assert.equal(c.mode, 'won');
+  assert.equal(c.fuel, 0.5);
+});
+
+test('flip reverses the orbit (and the launch tangent) only while orbiting', () => {
+  const lv = level([planet(360, 0), planet(360, -400, { goal: true })]);
+  const s = createState(lv);
+  const before = launchDir(s).x;
+  step(lv, s, false, false, true);
+  assert.equal(s.dir, -1);
+  assert.equal(s.flips, 1);
+  assert.ok(Math.sign(launchDir(s).x) === -Math.sign(before));
+  flying(lv, s, 360, -150);
+  step(lv, s, false, false, true);
+  assert.equal(s.dir, -1, 'no flip in flight');
+});
+
+test('bounce walls reflect the ship instead of losing it', () => {
+  const lv = level([planet(360, 0), planet(360, -2000, { goal: true })], { bounce: true });
+  const s = flying(lv, createState(lv), 700, -150, FLY_SPEED, 0);
+  for (let i = 0; i < 10; i++) step(lv, s, false);
+  assert.equal(s.mode, 'fly');
+  assert.ok(s.vx < 0 && s.x <= 720);
+  assert.equal(s.bounces, 1);
+  const plain = level([planet(360, 0), planet(360, -2000, { goal: true })]);
+  const t = flying(plain, createState(plain), 700, -150, FLY_SPEED, 0);
+  for (let i = 0; i < 10; i++) step(plain, t, false);
+  assert.equal(t.cause, 'lost');
+});
+
+test('giant planets bend a passing flight toward themselves', () => {
+  const giant = planet(500, -400, { g: 3e6 });
+  const lv = level([planet(360, 0), giant, planet(100, -1500, { goal: true })], { giants: true });
+  const s = flying(lv, createState(lv), 300, -150);
+  for (let i = 0; i < 20; i++) step(lv, s, false);
+  assert.ok(s.vx > 0, 'pulled right toward the giant');
+  assert.ok(Math.abs(Math.hypot(s.vx, s.vy) - FLY_SPEED) < 1e-6, 'at constant speed');
+});
+
+test('a revive puts the ship back on the planet it left, once', () => {
+  const lv = level([planet(360, 0), planet(360, -400, { goal: true })]);
+  const s = createState(lv, { revives: 1 });
+  run(lv, s, 400, 0);
+  assert.equal(s.mode, 'orbit');
+  assert.equal(s.pi, 0);
+  assert.equal(s.revives, 0);
+  run(lv, s, 400, 0);
+  assert.equal(s.mode, 'dead');
+});
+
+test('a perfect landing is one aimed at the planet centre; grazing the ring is not', () => {
+  const lv = level([planet(360, 0), planet(360, -400), planet(360, -800, { goal: true })]);
+  const centre = flying(lv, createState(lv, { events: true }), 360, -250);
+  run(lv, centre, 30);
+  assert.equal(centre.perfects, 1);
+  const graze = flying(lv, createState(lv, { events: true }), 455, -250);
+  run(lv, graze, 30);
+  assert.equal(graze.pi, 1);
+  assert.equal(graze.perfects, 0);
+});
+
+test('shard hunts are won by collecting every shard, and lost when the clock runs out', () => {
+  const shards = [{ x: 360, y: -150 }, { x: 360, y: -200 }];
+  const lv = level([planet(360, 0), planet(360, -900)], { shards, hunt: true, timeLimit: 3 });
+  const s = flying(lv, createState(lv), 360, -110);
+  run(lv, s, 20);
+  assert.equal(s.mode, 'won');
+  const idle = createState(lv);
+  run(lv, idle, 400);
+  assert.equal(idle.mode, 'dead');
+  assert.equal(idle.cause, 'time');
+});
+
+test('coins and the gold shard are collected once on contact', () => {
+  const lv = level([planet(360, 0), planet(360, -900, { goal: true })], { coins: [{ x: 360, y: -200 }, { x: 600, y: -200 }], gold: { x: 360, y: -300 } });
+  const s = flying(lv, createState(lv), 360, -150);
+  run(lv, s, 20);
+  assert.deepEqual(s.coinGot, [true, false]);
+  assert.equal(s.coins, 1);
+  assert.equal(s.gold, true);
+});
+
+test('near misses are reported only when skimming a hazard without touching it', () => {
+  const ast = { kind: 'wrap', x: 400, y: -150, r: 20, vx: 0, spin: 0, seed: 1 };
+  const lv = level([planet(360, 0), planet(360, -900, { goal: true })], { asteroids: [ast] });
+  assert.equal(nearMiss(lv, flying(lv, createState(lv), 360, -150)), 'asteroid');
+  assert.equal(nearMiss(lv, flying(lv, createState(lv), 200, -150)), null);
+});
