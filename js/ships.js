@@ -144,6 +144,33 @@ const SHAPES = {
     ctx.fillStyle = a;
     ctx.fill();
   },
+  aurum(ctx, s, c, a) {
+    // Swept-back wings around a long hull.
+    poly(ctx, [s * 0.62, 0, s * 0.18, s * 0.1, -s * 0.06, s * 0.48, -s * 0.22, s * 0.5, -s * 0.12, s * 0.16, -s * 0.48, s * 0.22, -s * 0.36, 0, -s * 0.48, -s * 0.22, -s * 0.12, -s * 0.16, -s * 0.22, -s * 0.5, -s * 0.06, -s * 0.48, s * 0.18, -s * 0.1]);
+    ctx.fillStyle = c;
+    ctx.fill();
+    ctx.strokeStyle = a;
+    ctx.lineWidth = s * 0.035;
+    ctx.beginPath();
+    ctx.moveTo(s * 0.1, s * 0.12);
+    ctx.lineTo(-s * 0.14, s * 0.42);
+    ctx.moveTo(s * 0.1, -s * 0.12);
+    ctx.lineTo(-s * 0.14, -s * 0.42);
+    ctx.stroke();
+    // Raised spine.
+    poly(ctx, [s * 0.5, 0, s * 0.05, s * 0.07, -s * 0.3, 0, s * 0.05, -s * 0.07]);
+    ctx.globalAlpha *= 0.55;
+    ctx.fillStyle = a;
+    ctx.fill();
+    ctx.globalAlpha /= 0.55;
+    // Faceted gem core.
+    poly(ctx, [s * 0.22, 0, s * 0.08, s * 0.1, -s * 0.05, 0, s * 0.08, -s * 0.1]);
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+    poly(ctx, [s * 0.22, 0, s * 0.08, s * 0.1, s * 0.08, -s * 0.1]);
+    ctx.fillStyle = a;
+    ctx.fill();
+  },
 };
 
 /** Draw a ship skin at the current transform. `glow` adds a soft halo. */

@@ -11,6 +11,11 @@ const PROG = [
 ];
 
 const midi = (n) => 440 * Math.pow(2, (n - 69) / 12);
+const BAR_LEN = 4.8;
+// Arpeggio walk (indexes into PENTA) for intensity level 2.
+const ARP = [0, 2, 4, 5, 7, 5, 4, 2];
+// Peak gain per hazard signature loop.
+const HAZ_MAX = { laser: 0.08, hole: 0.12, warp: 0.07, ast: 0.1 };
 
 export class Sound {
   constructor() {
@@ -21,6 +26,9 @@ export class Sound {
     this.timer = null;
     this.nextBar = 0;
     this.bar = 0;
+    this.intensity = 0;
+    this.sched = []; // bars scheduled ahead: { t, key, bar, lv }
+    this.hz = null;
   }
 
   /** Create/resume the audio context. Must run inside a user gesture (iOS). */
@@ -40,6 +48,13 @@ export class Sound {
       this.mus = this.ctx.createGain();
       this.mus.gain.value = this.musicOn ? 0.22 : 0;
       this.mus.connect(this.master);
+      // Gated buses for the intensity layers so they can drop out instantly.
+      this.percBus = this.ctx.createGain();
+      this.percBus.gain.value = this.intensity >= 1 ? 1 : 0;
+      this.percBus.connect(this.mus);
+      this.arpBus = this.ctx.createGain();
+      this.arpBus.gain.value = this.intensity >= 2 ? 1 : 0;
+      this.arpBus.connect(this.mus);
       const len = this.ctx.sampleRate;
       this.noise = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
       const data = this.noise.getChannelData(0);
@@ -89,7 +104,7 @@ export class Sound {
     o.stop(start + dur + 0.05);
   }
 
-  noiseBurst(start, dur, { freq = 1200, q = 1, gain = 0.3, type = 'bandpass', sweep = 1 } = {}) {
+  noiseBurst(start, dur, { freq = 1200, q = 1, gain = 0.3, type = 'bandpass', sweep = 1, dest = this.sfx } = {}) {
     const c = this.ctx;
     const src = c.createBufferSource();
     src.buffer = this.noise;
@@ -101,7 +116,7 @@ export class Sound {
     const g = c.createGain();
     g.gain.setValueAtTime(gain, start);
     g.gain.exponentialRampToValueAtTime(0.0001, start + dur);
-    src.connect(f).connect(g).connect(this.sfx);
+    src.connect(f).connect(g).connect(dest);
     src.start(start);
     src.stop(start + dur + 0.05);
   }
@@ -160,6 +175,63 @@ export class Sound {
       case 'unlock':
         [0, 7, 12, 19, 24].forEach((n, i) => this.tone(midi(72 + n), t + i * 0.09, 0.6, { type: 'sine', gain: 0.18 }));
         break;
+      case 'boost':
+        this.noiseBurst(t, 0.45, { freq: 400, sweep: 6, gain: 0.3, q: 1.5 });
+        this.tone(140, t, 0.4, { type: 'sawtooth', glide: 2.5, gain: 0.1 });
+        this.tone(280, t + 0.03, 0.35, { type: 'triangle', glide: 2.2, gain: 0.06 });
+        break;
+      case 'perfect': {
+        const n = 79 + Math.min(arg, 12);
+        this.tone(midi(n), t, 0.18, { type: 'sine', gain: 0.22 });
+        this.tone(midi(n + 7), t + 0.07, 0.32, { type: 'sine', gain: 0.22 });
+        this.tone(midi(n + 19), t + 0.07, 0.25, { type: 'triangle', gain: 0.05 });
+        break;
+      }
+      case 'flip':
+        this.tone(520, t, 0.12, { type: 'triangle', glide: 0.5, gain: 0.12 });
+        this.tone(390, t + 0.06, 0.12, { type: 'triangle', glide: 1.8, gain: 0.1 });
+        break;
+      case 'bounce':
+        this.tone(180, t, 0.18, { type: 'square', glide: 2.2, gain: 0.08 });
+        this.tone(90, t, 0.14, { type: 'sine', glide: 1.6, gain: 0.2 });
+        this.noiseBurst(t, 0.08, { freq: 2500, q: 3, gain: 0.12 });
+        break;
+      case 'pickup':
+        this.tone(midi(96), t, 0.06, { type: 'square', gain: 0.05 });
+        this.tone(midi(103), t + 0.04, 0.09, { type: 'sine', gain: 0.1 });
+        break;
+      case 'gold':
+        [0, 4, 7, 11, 12, 16, 19, 24].forEach((n, i) => this.tone(midi(72 + n), t + i * 0.06, 0.9 - i * 0.05, { type: 'triangle', gain: 0.14 }));
+        [0, 7, 12].forEach((n) => this.tone(midi(60 + n), t, 1.6, { type: 'sine', gain: 0.1, attack: 0.08 }));
+        for (let i = 0; i < 6; i++) this.tone(midi(96 + PENTA[i]), t + 0.3 + i * 0.08, 0.25, { type: 'sine', gain: 0.06 });
+        this.noiseBurst(t, 1.2, { freq: 5000, sweep: 1.8, q: 6, gain: 0.08 });
+        break;
+      case 'nearmiss':
+        this.noiseBurst(t, 0.3, { freq: 900, sweep: 3.5, q: 1.2, gain: 0.22 });
+        this.tone(midi(100), t + 0.08, 0.2, { type: 'sine', gain: 0.1 });
+        break;
+      case 'revive':
+        [0, 4, 7, 12].forEach((n, i) => this.tone(midi(55 + n), t + i * 0.06, 0.9, { type: 'triangle', glide: 2, gain: 0.1, attack: 0.04 }));
+        this.tone(midi(79), t + 0.45, 0.6, { type: 'sine', gain: 0.15 });
+        this.noiseBurst(t, 0.8, { freq: 500, sweep: 8, q: 2, gain: 0.15 });
+        break;
+      case 'chest':
+        this.noiseBurst(t, 0.5, { freq: 3000, sweep: 2.5, q: 1, gain: 0.12, type: 'highpass' });
+        for (let i = 0; i < 6; i++) this.tone(midi(84 + PENTA[Math.floor(Math.random() * 8)]), t + 0.05 + i * 0.065, 0.3, { type: 'sine', gain: 0.1 });
+        this.tone(midi(72), t, 0.25, { type: 'triangle', glide: 1.5, gain: 0.08 });
+        break;
+      case 'levelup':
+        [0, 4, 7, 12, 16].forEach((n, i) => this.tone(midi(72 + n), t + i * 0.06, 0.25, { type: 'square', gain: 0.06 }));
+        this.tone(midi(91), t + 0.3, 0.6, { type: 'triangle', gain: 0.16 });
+        this.tone(midi(84), t + 0.3, 0.6, { type: 'sine', gain: 0.12 });
+        break;
+      case 'chain':
+        this.tone(midi(84 + Math.min(arg, 12)), t, 0.08, { type: 'square', glide: 1.5, gain: 0.06 });
+        break;
+      case 'turn':
+        this.tone(midi(76), t, 0.12, { type: 'sine', gain: 0.15 });
+        this.tone(midi(71), t + 0.13, 0.16, { type: 'sine', gain: 0.15 });
+        break;
       default:
         break;
     }
@@ -176,11 +248,146 @@ export class Sound {
     this.timer = null;
   }
 
-  /** Schedule ambient bars ahead of time: a slow pad chord plus sparse pentatonic plucks. */
+  /** Music intensity 0 (ambient), 1 (+ percussion), 2 (+ fast arpeggio). Rises take effect mid-bar. */
+  setIntensity(level) {
+    const lv = Math.max(0, Math.min(2, Math.round(level) || 0));
+    if (lv === this.intensity) return;
+    this.intensity = lv;
+    const c = this.ctx;
+    if (!c) return;
+    const now = c.currentTime;
+    this.percBus.gain.setTargetAtTime(lv >= 1 ? 1 : 0, now, 0.04);
+    this.arpBus.gain.setTargetAtTime(lv >= 2 ? 1 : 0, now, 0.04);
+    if (!this.timer || c.state !== 'running') return;
+    // Fill in the new layers for the rest of every bar already scheduled.
+    const from = now + 0.06;
+    for (const e of this.sched) {
+      if (e.lv >= lv) continue;
+      this.layers(e, from, e.t + BAR_LEN, e.lv, lv);
+      e.lv = lv;
+    }
+  }
+
+  /** Schedule intensity-layer hits of bar `e` in [from, to) for layers above `minLv` up to `lv`. */
+  layers(e, from, to, minLv, lv) {
+    const beat = BAR_LEN / 8;
+    if (minLv < 1 && lv >= 1) {
+      for (let i = 0; i < 16; i++) {
+        const t = e.t + (i * beat) / 2;
+        if (t < from || t >= to) continue;
+        this.noiseBurst(t, 0.05, { freq: 7500, q: 0.7, type: 'highpass', gain: i % 2 ? 0.05 : 0.08, dest: this.percBus });
+        if (i % 2 === 0) this.tone(115, t, 0.3, { type: 'sine', glide: 0.38, gain: i % 4 === 0 ? 0.3 : 0.18, dest: this.percBus });
+      }
+    }
+    if (minLv < 2 && lv >= 2) {
+      const off = e.bar % 4;
+      for (let i = 0; i < 32; i++) {
+        const t = e.t + (i * beat) / 4;
+        if (t < from || t >= to) continue;
+        this.tone(midi(e.key + 12 + PENTA[ARP[(i + off) % ARP.length]]), t, 0.16, { type: 'triangle', gain: 0.045, dest: this.arpBus });
+      }
+    }
+  }
+
+  /**
+   * Continuous hazard signatures; `levels` = { laser, hole, warp, ast } proximities 0..1, or null to silence.
+   * Call every frame while playing.
+   */
+  setHazards(levels) {
+    const c = this.ctx;
+    if (!c || (!levels && !this.hz)) return;
+    if (!this.hz) this.buildHazards();
+    const now = c.currentTime;
+    const last = this.hz.last;
+    for (const k in HAZ_MAX) {
+      const raw = levels ? levels[k] || 0 : 0;
+      const v = Math.max(0, Math.min(1, raw)) * HAZ_MAX[k];
+      if (Math.abs(v - last[k]) < 0.002 && !(v === 0 && last[k] !== 0)) continue;
+      last[k] = v;
+      this.hz[k].gain.setTargetAtTime(v, now, 0.15);
+    }
+  }
+
+  buildHazards() {
+    const c = this.ctx;
+    const gain = (v) => {
+      const g = c.createGain();
+      g.gain.value = v;
+      return g;
+    };
+    const out = () => {
+      const g = gain(0);
+      g.connect(this.sfx);
+      return g;
+    };
+    const filter = (type, freq, q) => {
+      const f = c.createBiquadFilter();
+      f.type = type;
+      f.frequency.value = freq;
+      f.Q.value = q;
+      return f;
+    };
+    const osc = (type, freq) => {
+      const o = c.createOscillator();
+      o.type = type;
+      o.frequency.value = freq;
+      o.start();
+      return o;
+    };
+    const noise = (rate = 1) => {
+      const s = c.createBufferSource();
+      s.buffer = this.noise;
+      s.loop = true;
+      s.playbackRate.value = rate;
+      s.start();
+      return s;
+    };
+    const lfo = (freq, depth, param) => osc('sine', freq).connect(gain(depth)).connect(param);
+    const hz = { last: { laser: 0, hole: 0, warp: 0, ast: 0 } };
+
+    // Laser: detuned saws around 110 Hz through a bandpass with a fast tremolo.
+    hz.laser = out();
+    const lbp = filter('bandpass', 900, 2.5);
+    osc('sawtooth', 110).connect(lbp);
+    osc('sawtooth', 111.4).connect(lbp);
+    const trem = gain(0.6);
+    lfo(9, 0.22, trem.gain);
+    lbp.connect(trem).connect(hz.laser);
+
+    // Black hole: deep sine rumble with a slow pitch wobble plus lowpassed noise.
+    hz.hole = out();
+    const sub = osc('sine', 46);
+    lfo(0.17, 4, sub.frequency);
+    sub.connect(gain(0.7)).connect(hz.hole);
+    const oct = osc('sine', 92);
+    lfo(0.17, 8, oct.frequency);
+    oct.connect(gain(0.22)).connect(hz.hole);
+    noise().connect(filter('lowpass', 140, 0.7)).connect(gain(0.9)).connect(hz.hole);
+
+    // Wormhole: airy noise through a slowly sweeping resonant bandpass, with a faint shimmer.
+    hz.warp = out();
+    const wbp = filter('bandpass', 1800, 6);
+    lfo(0.23, 1100, wbp.frequency);
+    noise(0.9).connect(wbp).connect(gain(1.4)).connect(hz.warp);
+    const shim = osc('triangle', 1320);
+    lfo(5.5, 14, shim.frequency);
+    shim.connect(gain(0.05)).connect(hz.warp);
+
+    // Asteroids: gritty lowpassed noise whose amplitude jitters (a slow noise stream modulates it).
+    hz.ast = out();
+    const jit = gain(0.45);
+    noise().connect(filter('lowpass', 420, 1.2)).connect(jit).connect(hz.ast);
+    noise(0.03).connect(filter('lowpass', 30, 0.7)).connect(gain(2)).connect(jit.gain);
+
+    this.hz = hz;
+  }
+
+  /** Schedule ambient bars ahead of time: a slow pad chord plus sparse pentatonic plucks, plus intensity layers. */
   schedule() {
     const c = this.ctx;
     if (!c || c.state !== 'running') return;
-    const barLen = 4.8;
+    const barLen = BAR_LEN;
+    while (this.sched.length && this.sched[0].t + barLen < c.currentTime) this.sched.shift();
     while (this.nextBar < c.currentTime + 1.5) {
       const t = this.nextBar;
       const key = KEYS[this.theme % KEYS.length];
@@ -195,6 +402,9 @@ export class Sound {
         const n = key + 12 + PENTA[Math.floor(Math.random() * 7)];
         this.tone(midi(n), t + (i * barLen) / plucks, 1.2, { type: 'sine', gain: 0.07, dest: this.mus });
       }
+      const e = { t, key, bar: this.bar, lv: this.intensity };
+      if (e.lv > 0) this.layers(e, t, t + barLen, 0, e.lv);
+      this.sched.push(e);
       this.bar++;
       this.nextBar += barLen;
     }

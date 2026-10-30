@@ -22,7 +22,7 @@ export class Fx {
     this.flash = 0;
   }
 
-  spawn(x, y, vx, vy, life, size, color, drag = 0.9, glow = true) {
+  spawn(x, y, vx, vy, life, size, color, drag = 0.9, glow = true, spin = 0) {
     if (this.parts.length >= MAX_PARTICLES) return;
     const p = this.free.pop() || {};
     p.x = x;
@@ -35,6 +35,7 @@ export class Fx {
     p.color = color;
     p.drag = drag;
     p.glow = glow;
+    p.spin = spin;
     this.parts.push(p);
   }
 
@@ -43,6 +44,38 @@ export class Fx {
       const a = Math.random() * Math.PI * 2;
       const v = speed * (0.3 + Math.random() * 0.7);
       this.spawn(x, y, Math.cos(a) * v, Math.sin(a) * v, life * (0.6 + Math.random() * 0.6), size * (0.5 + Math.random()), colors[i % colors.length]);
+    }
+  }
+
+  /** Particles curling outward on a spiral (velocity rotates over time). */
+  spiral(x, y, colors, n = 16, speed = 220, life = 0.7) {
+    n = Math.min(n, 40);
+    const dir = Math.random() < 0.5 ? -1 : 1;
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + Math.random() * 0.3;
+      const v = speed * (0.6 + Math.random() * 0.4);
+      this.spawn(x, y, Math.cos(a) * v, Math.sin(a) * v, life * (0.7 + Math.random() * 0.5), 3.5 * (0.6 + Math.random() * 0.6), colors[i % colors.length], 0.94, true, dir * (4.5 + Math.random() * 2));
+    }
+  }
+
+  /** A cone (±0.5 rad) of fast, small, non-glow sparks along (dirX, dirY). */
+  sparks(x, y, dirX, dirY, colors, n = 12, speed = 320) {
+    n = Math.min(n, 40);
+    const base = Math.atan2(dirY, dirX);
+    for (let i = 0; i < n; i++) {
+      const a = base + (Math.random() * 2 - 1) * 0.5;
+      const v = speed * (0.5 + Math.random() * 0.5);
+      this.spawn(x, y, Math.cos(a) * v, Math.sin(a) * v, 0.25 + Math.random() * 0.25, 2 + Math.random() * 1.5, colors[i % colors.length], 0.88, false);
+    }
+  }
+
+  /** Slow, large, gently drifting particles with low drag and a lazy swirl. */
+  petals(x, y, colors, n = 14) {
+    n = Math.min(n, 40);
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const v = 40 + Math.random() * 70;
+      this.spawn(x, y, Math.cos(a) * v, Math.sin(a) * v, 1.2 + Math.random() * 0.8, 6 + Math.random() * 4, colors[i % colors.length], 0.985, true, (Math.random() - 0.5) * 3);
     }
   }
 
@@ -77,6 +110,14 @@ export class Fx {
       const d = Math.pow(p.drag, dt * 60);
       p.vx *= d;
       p.vy *= d;
+      if (p.spin) {
+        const r = p.spin * dt;
+        const c = Math.cos(r);
+        const sn = Math.sin(r);
+        const vx = p.vx;
+        p.vx = vx * c - p.vy * sn;
+        p.vy = vx * sn + p.vy * c;
+      }
       p.x += p.vx * dt;
       p.y += p.vy * dt;
     }
