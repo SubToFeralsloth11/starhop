@@ -1,4 +1,6 @@
-// Offline support: precache the whole app shell, serve cache-first, refresh in the background.
+// Offline support: precache the whole app shell. Requests go to the network first (with
+// `cache: 'no-cache'` revalidation) so every deploy shows up on the next load; the cache is only
+// used when the network is unavailable.
 const VERSION = 'starhop-v1';
 const ASSETS = [
   './',
@@ -46,18 +48,15 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
   e.respondWith(
     caches.open(VERSION).then(async (cache) => {
-      const hit = await cache.match(req, { ignoreSearch: true });
-      const net = fetch(req)
-        .then((res) => {
-          if (res.ok) cache.put(req, res.clone());
-          return res;
-        })
-        .catch(() => null);
-      if (hit) {
-        e.waitUntil(net);
-        return hit;
+      try {
+        // Navigation requests cannot be re-initialised, so fetch them by URL.
+        const res = await fetch(req.mode === 'navigate' ? req.url : req, { cache: 'no-cache' });
+        if (res.ok) e.waitUntil(cache.put(req, res.clone()));
+        return res;
+      } catch {
+        const hit = await cache.match(req, { ignoreSearch: true });
+        return hit || (req.mode === 'navigate' ? cache.match('index.html') : Response.error());
       }
-      return (await net) || (req.mode === 'navigate' ? cache.match('index.html') : Response.error());
     }),
   );
 });
