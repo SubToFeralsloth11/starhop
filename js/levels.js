@@ -83,8 +83,8 @@ function farFromPlanets(planets, x, y, clearance) {
 }
 
 function makePlanet(rng, prev, diff, f, goal) {
-  const r = goal ? 30 : rng.range(24, 44 - diff * 6);
-  const orbit = goal ? 78 : r + rng.range(34, 50) - diff * 8;
+  const r = goal ? 38 : rng.range(32, 56 - diff * 8);
+  const orbit = goal ? 92 : r + rng.range(38, 54) - diff * 8;
   const margin = orbit + 18;
   let x = prev.x;
   for (let tries = 0; tries < 12; tries++) {
@@ -92,7 +92,7 @@ function makePlanet(rng, prev, diff, f, goal) {
     if (x >= margin && x <= WORLD_W - margin) break;
   }
   x = Math.min(WORLD_W - margin, Math.max(margin, x));
-  const y = prev.y - (rng.range(250, 320) + diff * 70);
+  const y = prev.y - (rng.range(290, 360) + diff * 70);
   const p = { x, y, r, orbit, mx: 0, mf: 0, mp: 0, crumble: 0, goal, hue: rng.int(0, 3), ring: rng.chance(0.35) };
   if (!goal && rng.chance(f.move)) {
     const room = Math.min(x - margin, WORLD_W - margin - x);
@@ -261,7 +261,7 @@ function grow(rng, level, hops, diff, f, lastIsGoal) {
 }
 
 function startPlanet() {
-  return { x: WORLD_W / 2, y: 0, r: 40, orbit: 84, mx: 0, mf: 0, mp: 0, crumble: 0, goal: false, hue: 0, ring: true };
+  return { x: WORLD_W / 2, y: 0, r: 50, orbit: 100, mx: 0, mf: 0, mp: 0, crumble: 0, goal: false, hue: 0, ring: true };
 }
 
 function finishLevel(level, solution) {

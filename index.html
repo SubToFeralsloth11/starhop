@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#0b0630" />
+    <meta name="description" content="Starhop: a one-tap space game. Fling your ship between planets across 200 levels, 8 worlds, endless mode and a daily challenge." />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Starhop" />
+    <title>Starhop</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="icon" href="icons/icon-192.png" type="image/png" />
+    <link rel="apple-touch-icon" href="icons/icon-180.png" />
+    <link rel="preload" href="fonts/baloo2-latin.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <canvas id="game" aria-label="Starhop game"></canvas>
+
+    <div id="ui">
+      <section class="screen active" id="screen-loading">
+        <div class="logo"><h1>STAR<span>HOP</span></h1></div>
+        <div class="loader"><i></i><i></i><i></i></div>
+        <p class="loading-text" id="loading-text">Charging thrusters…</p>
+      </section>
+
+      <section class="screen" id="screen-title">
+        <header class="topbar">
+          <div class="pill pill-dust" title="Stardust"><span class="ico-dust"></span><b data-bind="dust">0</b></div>
+          <div class="pill pill-stars" title="Stars"><span class="ico-star">★</span><b data-bind="stars">0</b></div>
+        </header>
+        <div class="logo float">
+          <h1>STAR<span>HOP</span></h1>
+          <p class="tag">tap · fling · land</p>
+        </div>
+        <nav class="menu">
+          <button class="btn big primary" id="btn-play"><span>PLAY</span><small id="play-sub">Level 1-1</small></button>
+          <div class="row">
+            <button class="btn" id="btn-worlds">Worlds</button>
+            <button class="btn" id="btn-endless"><span>Endless</span><small id="endless-sub"></small></button>
+          </div>
+          <div class="row">
+            <button class="btn gold" id="btn-daily"><span>Daily</span><small id="daily-sub"></small></button>
+            <button class="btn" id="btn-shop">Shop</button>
+          </div>
+          <div class="row">
+            <button class="btn icon-btn" id="btn-trophies" aria-label="Trophies"><span class="svg-trophy"></span><em class="badge" id="trophy-badge" hidden>0</em></button>
+            <button class="btn icon-btn" id="btn-settings" aria-label="Settings"><span class="svg-gear"></span></button>
+          </div>
+        </nav>
+      </section>
+
+      <section class="screen" id="screen-worlds">
+        <header class="bar">
+          <button class="btn back" data-back aria-label="Back"></button>
+          <h2>Worlds</h2>
+          <div class="pill pill-stars"><span class="ico-star">★</span><b data-bind="stars">0</b></div>
+        </header>
+        <div class="carousel" id="world-list"></div>
+        <div class="dots" id="world-dots"></div>
+      </section>
+
+      <section class="screen" id="screen-levels">
+        <header class="bar">
+          <button class="btn back" data-back aria-label="Back"></button>
+          <h2 id="levels-title">World</h2>
+          <div class="pill pill-stars"><span class="ico-star">★</span><b id="levels-stars">0/75</b></div>
+        </header>
+        <p class="world-mech" id="levels-mech"></p>
+        <div class="level-grid" id="level-grid"></div>
+      </section>
+
+      <section class="screen" id="screen-shop">
+        <header class="bar">
+          <button class="btn back" data-back aria-label="Back"></button>
+          <h2>Shop</h2>
+          <div class="pill pill-dust"><span class="ico-dust"></span><b data-bind="dust">0</b></div>
+        </header>
+        <div class="tabs" role="tablist">
+          <button class="tab active" data-tab="ship">Ships</button>
+          <button class="tab" data-tab="trail">Trails</button>
+          <button class="tab" data-tab="upgrade">Upgrades</button>
+        </div>
+        <div class="shop-grid" id="shop-grid"></div>
+      </section>
+
+      <section class="screen" id="screen-trophies">
+        <header class="bar">
+          <button class="btn back" data-back aria-label="Back"></button>
+          <h2>Trophies</h2>
+          <div class="pill pill-dust"><span class="ico-dust"></span><b data-bind="dust">0</b></div>
+        </header>
+        <p class="sub" id="trophy-summary"></p>
+        <div class="trophy-list" id="trophy-list"></div>
+      </section>
+
+      <section class="screen" id="screen-settings">
+        <header class="bar">
+          <button class="btn back" data-back aria-label="Back"></button>
+          <h2>Settings</h2>
+          <span></span>
+        </header>
+        <div class="panel settings">
+          <label class="toggle"><span>Music</span><input type="checkbox" data-setting="music" /><i></i></label>
+          <label class="toggle"><span>Sound effects</span><input type="checkbox" data-setting="sfx" /><i></i></label>
+          <label class="toggle"><span>Vibration</span><input type="checkbox" data-setting="haptics" /><i></i></label>
+          <label class="toggle"><span>Reduced motion</span><input type="checkbox" data-setting="reduced" /><i></i></label>
+          <div class="stats" id="stats"></div>
+          <button class="btn danger" id="btn-reset">Reset progress</button>
+          <p class="credits">Starhop · made with Canvas &amp; WebAudio · font: Baloo 2 (OFL)</p>
+        </div>
+      </section>
+
+      <div id="hud" hidden>
+        <div class="hud-top">
+          <button class="btn icon-btn small" id="btn-pause" aria-label="Pause"><span class="svg-pause"></span></button>
+          <div class="hud-center">
+            <div class="hud-title" id="hud-title">1-1</div>
+            <div class="hud-progress"><i id="hud-bar"></i></div>
+          </div>
+          <div class="hud-shards" id="hud-shards"></div>
+        </div>
+        <div class="hud-sub">
+          <span id="hud-time">0.0s</span>
+          <span id="hud-attempt">Attempt 1</span>
+          <span id="hud-shields"></span>
+        </div>
+        <div class="hud-score" id="hud-score" hidden>0</div>
+        <div class="hud-crumble" id="hud-crumble" hidden></div>
+      </div>
+
+      <div id="tutorial" hidden>
+        <div class="hand"></div>
+        <p>Tap anywhere to <b>launch</b></p>
+        <small>Fly into the next dashed ring to land</small>
+      </div>
+
+      <div class="modal" id="modal-pause" hidden>
+        <div class="panel card">
+          <h2>Paused</h2>
+          <p class="sub" id="pause-info"></p>
+          <button class="btn big primary" id="btn-resume">Resume</button>
+          <div class="row">
+            <button class="btn" id="btn-restart">Restart</button>
+            <button class="btn" id="btn-quit">Quit</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal" id="modal-result" hidden>
+        <div class="panel card result">
+          <h2 id="result-title">Level clear!</h2>
+          <div class="result-stars" id="result-stars"><i></i><i></i><i></i></div>
+          <ul class="star-reasons" id="result-reasons"></ul>
+          <div class="result-score" id="result-score" hidden></div>
+          <div class="breakdown" id="result-breakdown"></div>
+          <div class="result-dust"><span class="ico-dust"></span>+<b id="result-dust">0</b></div>
+          <div class="row">
+            <button class="btn" id="btn-result-map">Map</button>
+            <button class="btn" id="btn-result-retry">Retry</button>
+            <button class="btn primary" id="btn-result-next">Next</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal" id="modal-daily" hidden>
+        <div class="panel card">
+          <h2>Daily reward</h2>
+          <p class="sub" id="daily-streak"></p>
+          <div class="daily-strip" id="daily-strip"></div>
+          <button class="btn big gold" id="btn-claim-daily">Claim</button>
+        </div>
+      </div>
+
+      <div class="modal" id="modal-confirm" hidden>
+        <div class="panel card">
+          <h2 id="confirm-title">Are you sure?</h2>
+          <p class="sub" id="confirm-text"></p>
+          <div class="row">
+            <button class="btn" id="btn-confirm-no">Cancel</button>
+            <button class="btn danger" id="btn-confirm-yes">Yes</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="toasts" aria-live="polite"></div>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+  </body>
+</html>

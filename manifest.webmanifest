@@ -1,0 +1,16 @@
+{
+  "name": "Starhop",
+  "short_name": "Starhop",
+  "description": "Fling your ship between planets across 200 levels, 8 worlds, endless mode and a daily challenge.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#05030f",
+  "theme_color": "#0b0630",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
