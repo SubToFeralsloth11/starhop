@@ -21,7 +21,9 @@ import {
   claimAchievement,
   claimDaily,
   claimMission,
+  CODEX_REWARD,
   codexKinds,
+  levelUpReward,
   dateKey,
   defaultSave,
   discover,
@@ -165,9 +167,11 @@ function levelUps(ups) {
 function discoverLevel(level) {
   const fresh = discover(save, codexKinds(level));
   if (!fresh.length) return;
+  // Paid now; the result card lists it again so its total matches what the run earned.
+  if (session) session.codexDust = (session.codexDust || 0) + fresh.length * CODEX_REWARD;
   // One toast per batch so a first level does not bury the screen in notifications.
   const names = fresh.map((c) => c.name).join(', ');
-  ui.toast(fresh.length === 1 ? `📖 New codex entry: <b>${names}</b> · +20` : `📖 ${fresh.length} new codex entries · +${20 * fresh.length}<br><small>${names}</small>`, 2600);
+  ui.toast(fresh.length === 1 ? `📖 New codex entry: <b>${names}</b> · +${CODEX_REWARD}` : `📖 ${fresh.length} new codex entries · +${CODEX_REWARD * fresh.length}<br><small>${names}</small>`, 2600);
   persist();
 }
 
@@ -411,6 +415,7 @@ function enterGame(label) {
   $('#tutorial').hidden = true;
   $('#btn-quit').textContent = session.mode === 'zen' ? 'End run' : 'Quit';
   session.label = label;
+  session.codexDust = 0;
   discoverLevel(session.level);
 }
 
@@ -835,6 +840,11 @@ function finishSession(r) {
   }
   trackMissions(save, date, { mode: session.mode, world: session.world, ...run, shards, cleared: r.won, stars, score: s.hops });
   persist();
+  // Everything else this run paid out, so the card's total equals the stardust actually gained.
+  const extras = (ups || []).map((l) => ({ label: `Pilot level ${l}`, amount: levelUpReward(l) }));
+  if (session.codexDust) extras.push({ label: 'Codex discoveries', amount: session.codexDust });
+  rows = rows.concat(extras);
+  dust += extras.reduce((a, x) => a + x.amount, 0);
   breakdown.innerHTML = rows.map((x) => `<span>${x.label}</span><b>${x.amount < 0 ? '−' : '+'}${Math.abs(x.amount)}</b>`).join('');
   $('#result-dust').textContent = '0';
   $('#swipe-hint').hidden = $('#btn-result-next').hidden || $('#btn-result-retry').hidden;
