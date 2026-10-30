@@ -188,3 +188,10 @@ test('corrupted fields inside an otherwise valid save are dropped without losing
   assert.equal(s.daily.lastClaim, null);
   assert.deepEqual(s.claimed, { clear1: true });
 });
+
+test('save records for levels that do not exist are dropped and never count as stars', () => {
+  const rec = { stars: 7, best: 3, clears: 1 };
+  const s = normalizeSave({ v: 1, levels: { '99-99': rec, '0-0': rec, '1-26': rec, '9-1': rec, '01-1': rec, '1-1': { stars: 6, clears: 1 }, '8-25': rec, '1-2': rec } });
+  assert.deepEqual(Object.keys(s.levels).sort(), ['1-2', '8-25']);
+  assert.equal(totalStars(s), 6);
+});

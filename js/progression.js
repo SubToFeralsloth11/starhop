@@ -81,7 +81,10 @@ function cleanLevels(raw) {
   const out = {};
   if (!isObj(raw)) return out;
   for (const [key, r] of Object.entries(raw)) {
-    if (!/^\d+-\d+$/.test(key) || !isObj(r) || !Number.isInteger(r.stars) || r.stars < 1 || r.stars > 7) continue;
+    const [w, i] = key.split('-').map(Number);
+    const realLevel = Number.isInteger(w) && Number.isInteger(i) && w >= 1 && w <= WORLDS.length && i >= 1 && i <= LEVELS_PER_WORLD && levelKey(w, i) === key;
+    // A record only exists once the level was cleared, so the clear bit must be set.
+    if (!realLevel || !isObj(r) || !Number.isInteger(r.stars) || r.stars < 1 || r.stars > 7 || !(r.stars & STAR_CLEAR)) continue;
     out[key] = { stars: r.stars, best: Number.isFinite(r.best) && r.best >= 0 ? r.best : null, clears: Math.max(1, count(r.clears)) };
   }
   return out;

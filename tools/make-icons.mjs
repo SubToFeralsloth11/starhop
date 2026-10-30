@@ -6,7 +6,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const SIZES = { 'icon-180.png': 180, 'icon-192.png': 192, 'icon-512.png': 512 };
+// name -> [pixel size, artwork scale]. The maskable icon shrinks the art into the 80% safe zone.
+const SIZES = { 'icon-180.png': [180, 1], 'icon-192.png': [192, 1], 'icon-512.png': [512, 1], 'icon-maskable-512.png': [512, 0.72] };
 const SS = 4; // supersampling per axis
 
 const hex = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
@@ -118,7 +119,7 @@ function chunk(type, data) {
   return Buffer.concat([len, td, crc]);
 }
 
-function png(size) {
+function png(size, scale) {
   const raw = Buffer.alloc(size * (size * 3 + 1));
   for (let py = 0; py < size; py++) {
     raw[py * (size * 3 + 1)] = 0;
@@ -126,7 +127,9 @@ function png(size) {
       const acc = [0, 0, 0];
       for (let sy = 0; sy < SS; sy++) {
         for (let sx = 0; sx < SS; sx++) {
-          const c = shade((px + (sx + 0.5) / SS) / size, (py + (sy + 0.5) / SS) / size);
+          const u = (px + (sx + 0.5) / SS) / size;
+          const v = (py + (sy + 0.5) / SS) / size;
+          const c = shade((u - 0.5) / scale + 0.5, (v - 0.5) / scale + 0.5);
           acc[0] += c[0];
           acc[1] += c[1];
           acc[2] += c[2];
@@ -145,7 +148,7 @@ function png(size) {
 }
 
 mkdirSync(join(root, 'icons'), { recursive: true });
-for (const [name, size] of Object.entries(SIZES)) {
-  writeFileSync(join(root, 'icons', name), png(size));
+for (const [name, [size, scale]] of Object.entries(SIZES)) {
+  writeFileSync(join(root, 'icons', name), png(size, scale));
   console.log('wrote', name);
 }

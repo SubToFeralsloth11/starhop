@@ -338,13 +338,14 @@ export function generateDaily(dateKey) {
   }
   const f = { ...NO_FEATURES };
   for (const m of mechs) f[m] = m === 'warp' ? 1 : m === 'ast' ? 1.0 : 0.55;
-  // Fall back to gentler versions of the same mix rather than failing the day's challenge.
+  // Fall back to gentler versions of the same mix (ending hazard-free) rather than failing the day.
   let level = null;
-  for (let soften = 0; !level; soften++) {
-    const k = Math.max(0, 1 - soften * 0.25);
+  for (let soften = 0; soften <= 4 && !level; soften++) {
+    const k = 1 - soften * 0.25;
     const mix = Object.fromEntries(Object.entries(f).map(([key, v]) => [key, key === 'warp' ? (k > 0 ? v : 0) : v * k]));
     level = buildValidated(['daily', dateKey, soften], 9, 0.55 * k, mix);
   }
+  if (!level) throw new Error(`daily ${dateKey}: no solvable layout`);
   return Object.assign(level, { id: `daily-${dateKey}`, kind: 'daily', world: 0, index: 0, mechs, dateKey });
 }
 
