@@ -352,7 +352,8 @@ button {
 
 .bar h2 {
   margin: 0;
-  font-size: 30px;
+  font-size: clamp(22px, 6.4vw, 30px);
+  line-height: 1.05;
   text-align: center;
   text-shadow: 0 0 18px rgba(157, 123, 255, 0.7);
 }
@@ -406,6 +407,7 @@ button {
 .carousel {
   flex: 1;
   display: flex;
+  align-items: center;
   gap: 16px;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
@@ -1307,4 +1309,16 @@ body.reduced *::after {
   .btn {
     min-height: 48px;
   }
+}
+
+.world-card .mech {
+  color: #fff;
+  font-size: 15px;
+  opacity: 0.8;
+}
+
+.world-card .enter {
+  width: 70%;
+  margin-top: 6px;
+  min-height: 50px;
 }

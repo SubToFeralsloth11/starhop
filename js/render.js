@@ -514,8 +514,8 @@ export class Renderer {
           ctx.stroke();
         }
       } else {
-        ctx.strokeStyle = warn ? `rgba(255,80,120,${0.35 + 0.35 * Math.sin(time * 40)})` : 'rgba(255,80,120,0.16)';
-        ctx.lineWidth = warn ? 2.5 : 2;
+        ctx.strokeStyle = warn ? `rgba(255,80,120,${0.45 + 0.4 * Math.sin(time * 40)})` : 'rgba(255,80,120,0.32)';
+        ctx.lineWidth = warn ? 4 : 3;
         ctx.setLineDash([3, 9]);
         ctx.beginPath();
         ctx.moveTo(l.x1, l.y1);
@@ -530,11 +530,11 @@ export class Renderer {
       ]) {
         ctx.fillStyle = '#2a0f1f';
         ctx.beginPath();
-        ctx.arc(x, y, 9, 0, TAU);
+        ctx.arc(x, y, 12, 0, TAU);
         ctx.fill();
         ctx.fillStyle = on || warn ? '#ff4d7d' : '#7a2945';
         ctx.beginPath();
-        ctx.arc(x, y, 5, 0, TAU);
+        ctx.arc(x, y, 7, 0, TAU);
         ctx.fill();
       }
     }
@@ -554,6 +554,12 @@ export class Renderer {
         ctx.setLineDash([]);
       } else if (a.y < top - 40 || a.y > bottom + 40) continue;
       asteroidPos(a, t, tmp);
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.35;
+      const gs = a.r * 2.4;
+      ctx.drawImage(this.glow('#ff5a2a'), tmp.x - gs, tmp.y - gs, gs * 2, gs * 2);
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = 'source-over';
       const spr = this.rockSprite(a);
       const half = a.r * 1.3;
       ctx.save();

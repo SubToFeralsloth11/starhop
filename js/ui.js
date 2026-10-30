@@ -78,7 +78,9 @@ export function renderWorlds(save, onPick) {
       <p>${t.blurb}</p>
       <div class="world-art" style="${worldArt(w)}"></div>
       <p><b>${cleared}</b>/${LEVELS_PER_WORLD} cleared · <span class="ico-star">★</span> <b>${stars}</b>/${LEVELS_PER_WORLD * 3}</p>
-      <div class="progress"><i style="width:${(stars / (LEVELS_PER_WORLD * 3)) * 100}%"></i></div>`;
+      <div class="progress"><i style="width:${(stars / (LEVELS_PER_WORLD * 3)) * 100}%"></i></div>
+      <p class="mech">${t.mechanic}</p>
+      <span class="btn primary enter">Enter</span>`;
     const lock = worldLock(save, w);
     if (lock) {
       const ov = el('div', 'lock-overlay');

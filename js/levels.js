@@ -49,20 +49,41 @@ export function featureMix(world, local) {
       f.laser = 0.2 * late;
       break;
     case 8: {
-      const k = 0.6 + 0.4 * local;
+      const k = 0.8 + 0.2 * local;
       f.move = 0.5 * k;
-      f.ast = 0.7 * k;
-      f.moon = 0.2 * k;
-      f.laser = 0.35 * k;
-      f.crumble = 0.35 * k;
-      f.hole = 0.3 * k;
-      f.warp = local > 0.5 ? 1 : 0;
+      f.ast = 0.9 * k;
+      f.moon = 0.25 * k;
+      f.laser = 0.5 * k;
+      f.crumble = 0.4 * k;
+      f.hole = 0.4 * k;
+      f.warp = local > 0.3 ? 1 : 0;
       break;
     }
     default:
       break;
   }
   return f;
+}
+
+/** Which hazard types a level contains (moving planets and crumbling planets count as hazards). */
+export function hazardKinds(level) {
+  const kinds = [];
+  if (level.planets.some((p) => p.mx > 0)) kinds.push('move');
+  if (level.asteroids.length) kinds.push('ast');
+  if (level.lasers.length) kinds.push('laser');
+  if (level.planets.some((p) => p.crumble > 0)) kinds.push('crumble');
+  if (level.holes.length) kinds.push('hole');
+  if (level.warps.length) kinds.push('warp');
+  return kinds;
+}
+
+const WORLD_MECHANIC = [null, null, 'move', 'ast', 'laser', 'crumble', 'hole', 'warp'];
+
+/** A campaign level must show off its world: its own mechanic, or a mix of 3+ hazards in world 8. */
+function showsWorld(world, level) {
+  const kinds = hazardKinds(level);
+  if (world === 8) return kinds.length >= 3;
+  return !WORLD_MECHANIC[world] || kinds.includes(WORLD_MECHANIC[world]);
 }
 
 export function campaignDifficulty(world, index) {
@@ -117,7 +138,7 @@ function bandBetween(lower, upper) {
 function addBandHazards(rng, level, band, diff, f) {
   const n = Math.floor(f.ast) + (rng.chance(f.ast % 1) ? 1 : 0);
   for (let k = 0; k < n; k++) {
-    const r = rng.range(13, 22);
+    const r = rng.range(17, 28);
     const lo = band.top + r + 14;
     const hi = band.bottom - r - 14;
     if (hi <= lo) continue;
@@ -169,7 +190,7 @@ function addMoon(rng, level, p, diff, f) {
     R: p.orbit + rng.range(24, 34),
     w: rng.sign() * rng.range(0.8, 1.4 + 0.8 * diff),
     ph: rng.range(0, TAU),
-    r: rng.range(10, 15),
+    r: rng.range(13, 19),
     spin: rng.range(-2, 2),
     seed: rng.int(0, 9999),
   });
@@ -281,13 +302,13 @@ function finishLevel(level, solution) {
   return level;
 }
 
-function buildValidated(seedParts, hops, diff, mix) {
+function buildValidated(seedParts, hops, diff, mix, accept = () => true) {
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     const rng = makeRng(hashSeed(...seedParts, attempt));
     const f = typeof mix === 'function' ? mix(rng) : mix;
     const level = { ...emptyLevel(), planets: [startPlanet()], bottom: 450 };
     addMoon(rng, level, level.planets[0], diff, f);
-    if (!grow(rng, level, hops, diff, f, true)) continue;
+    if (!grow(rng, level, hops, diff, f, true) || !accept(level)) continue;
     const solution = solve(level);
     if (solution.ok) {
       level.attempts = attempt + 1;
@@ -300,7 +321,7 @@ function buildValidated(seedParts, hops, diff, mix) {
 /** Campaign level (world 1..8, index 1..25). Throws if no valid layout exists (caught by tests). */
 export function generateLevel(world, index) {
   const { local, diff, hops } = campaignDifficulty(world, index);
-  const level = buildValidated(['level', world, index], hops, diff, featureMix(world, local));
+  const level = buildValidated(['level', world, index], hops, diff, featureMix(world, local), (l) => showsWorld(world, l));
   if (!level) throw new Error(`level ${world}-${index}: no solvable layout in ${MAX_ATTEMPTS} attempts`);
   return Object.assign(level, { id: `${world}-${index}`, kind: 'level', world, index });
 }

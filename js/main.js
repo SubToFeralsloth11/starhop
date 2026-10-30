@@ -118,6 +118,10 @@ function announce(before) {
 function go(id, { push = true } = {}) {
   if (push && screen !== id && screen !== 'screen-loading') history.push(screen);
   screen = id;
+  // The attract demo plays behind the title only; other menus get a calm starfield.
+  if (id === 'screen-title') {
+    if (!game.active) startDemo();
+  } else if (game.active && game.opts.mode === 'demo') game.stop();
   refresh(id);
   ui.showScreen(id);
 }
@@ -298,7 +302,7 @@ function leaveGame() {
   $('#modal-pause').hidden = true;
   $('#modal-result').hidden = true;
   session = null;
-  startDemo();
+  game.stop();
 }
 
 function quitToMenu() {
@@ -604,9 +608,10 @@ async function boot() {
   }
 }
 
-// Read-only handle for debugging and automated play-testing from the browser console.
+// Handle for debugging and automated play-testing from the browser console.
 window.starhop = {
   game,
+  play: (w, i) => playLevel(w, i),
   get save() {
     return save;
   },
