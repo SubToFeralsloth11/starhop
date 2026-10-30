@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#0b0630" />
-    <meta name="description" content="Starhop: a one-tap space game. Fling your ship between planets across 200 levels, 8 worlds, endless mode and a daily challenge." />
+    <meta name="description" content="Starhop: a one-tap space game. Fling your ship between planets across 250 levels and 10 worlds, plus endless, zen, time attack, shard hunts, weekly events and a daily challenge." />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -35,18 +35,28 @@
           <h1>STAR<span>HOP</span></h1>
           <p class="tag">tap · fling · land</p>
         </div>
+        <div class="pilot" id="pilot">
+          <div class="pilot-head"><b id="pilot-level">1</b><span id="pilot-title">Cadet</span><em id="pilot-asc" hidden></em></div>
+          <div class="progress"><i id="pilot-bar"></i></div>
+        </div>
         <nav class="menu">
           <button class="btn big primary" id="btn-play"><span>PLAY</span><small id="play-sub">Level 1-1</small></button>
           <div class="row">
             <button class="btn" id="btn-worlds">Worlds</button>
-            <button class="btn" id="btn-endless"><span>Endless</span><small id="endless-sub"></small></button>
+            <button class="btn" id="btn-modes"><span>Modes</span><small id="modes-sub">Zen · Hunt · Weekly</small></button>
           </div>
           <div class="row">
             <button class="btn gold" id="btn-daily"><span>Daily</span><small id="daily-sub"></small></button>
+            <button class="btn" id="btn-missions"><span>Missions</span><small id="missions-sub"></small><em class="badge" id="missions-badge" hidden>0</em></button>
+          </div>
+          <div class="row">
             <button class="btn" id="btn-shop">Shop</button>
+            <button class="btn" id="btn-endless"><span>Endless</span><small id="endless-sub"></small></button>
           </div>
           <div class="row">
             <button class="btn icon-btn" id="btn-trophies" aria-label="Trophies"><span class="svg-trophy"></span><em class="badge" id="trophy-badge" hidden>0</em></button>
+            <button class="btn icon-btn" id="btn-codex" aria-label="Codex"><span class="svg-book"></span></button>
+            <button class="btn icon-btn" id="btn-chest" aria-label="Star chests"><span class="svg-chest"></span><em class="badge" id="chest-badge" hidden>0</em></button>
             <button class="btn icon-btn" id="btn-settings" aria-label="Settings"><span class="svg-gear"></span></button>
           </div>
         </nav>
@@ -69,7 +79,47 @@
           <div class="pill pill-stars"><span class="ico-star">★</span><b id="levels-stars">0/75</b></div>
         </header>
         <p class="world-mech" id="levels-mech"></p>
-        <div class="level-grid" id="level-grid"></div>
+        <div class="mutators" id="mutators" hidden></div>
+        <div class="level-map" id="level-map"></div>
+      </section>
+
+      <section class="screen" id="screen-modes">
+        <header class="bar">
+          <button class="btn back" data-back aria-label="Back"></button>
+          <h2>Modes</h2>
+          <div class="pill pill-dust"><span class="ico-dust"></span><b data-bind="dust">0</b></div>
+        </header>
+        <div class="mode-list" id="mode-list"></div>
+      </section>
+
+      <section class="screen" id="screen-weekly">
+        <header class="bar">
+          <button class="btn back" data-back aria-label="Back"></button>
+          <h2>Weekly Event</h2>
+          <div class="pill pill-dust"><span class="ico-dust"></span><b data-bind="dust">0</b></div>
+        </header>
+        <p class="sub" id="weekly-sub"></p>
+        <div class="panel weekly" id="weekly-panel"></div>
+      </section>
+
+      <section class="screen" id="screen-missions">
+        <header class="bar">
+          <button class="btn back" data-back aria-label="Back"></button>
+          <h2>Missions</h2>
+          <div class="pill pill-dust"><span class="ico-dust"></span><b data-bind="dust">0</b></div>
+        </header>
+        <p class="sub" id="missions-reset"></p>
+        <div class="trophy-list" id="mission-list"></div>
+      </section>
+
+      <section class="screen" id="screen-codex">
+        <header class="bar">
+          <button class="btn back" data-back aria-label="Back"></button>
+          <h2>Codex</h2>
+          <div class="pill pill-dust"><span class="ico-dust"></span><b data-bind="dust">0</b></div>
+        </header>
+        <p class="sub" id="codex-summary"></p>
+        <div class="codex-grid" id="codex-grid"></div>
       </section>
 
       <section class="screen" id="screen-shop">
@@ -80,6 +130,7 @@
         </header>
         <div class="tabs" role="tablist">
           <button class="tab active" data-tab="ship">Ships</button>
+          <button class="tab" data-tab="paint">Paint</button>
           <button class="tab" data-tab="trail">Trails</button>
           <button class="tab" data-tab="upgrade">Upgrades</button>
         </div>
@@ -107,7 +158,16 @@
           <label class="toggle"><span>Sound effects</span><input type="checkbox" data-setting="sfx" /><i></i></label>
           <label class="toggle"><span>Vibration</span><input type="checkbox" data-setting="haptics" /><i></i></label>
           <label class="toggle"><span>Reduced motion</span><input type="checkbox" data-setting="reduced" /><i></i></label>
+          <label class="toggle"><span>Best-run ghost</span><input type="checkbox" data-setting="ghost" /><i></i></label>
+          <label class="toggle"><span>Hints after 5 tries</span><input type="checkbox" data-setting="hints" /><i></i></label>
+          <div class="theme-pick"><span>Menu theme</span><div class="chips" id="theme-chips"></div></div>
           <div class="stats" id="stats"></div>
+          <div class="row">
+            <button class="btn" id="btn-export">Export save</button>
+            <button class="btn" id="btn-import">Import save</button>
+          </div>
+          <button class="btn primary" id="btn-install" hidden>Install Starhop</button>
+          <button class="btn gold" id="btn-ascend" hidden><span>Ascend</span><small id="ascend-sub"></small></button>
           <button class="btn danger" id="btn-reset">Reset progress</button>
           <p class="credits">Starhop · made with Canvas &amp; WebAudio · font: Baloo 2 (OFL)</p>
         </div>
@@ -129,6 +189,11 @@
         </div>
         <div class="hud-score" id="hud-score" hidden>0</div>
         <div class="hud-crumble" id="hud-crumble" hidden></div>
+        <div class="hud-versus" id="hud-versus" hidden></div>
+      </div>
+      <div id="hud-bottom" hidden>
+        <button class="btn icon-btn flip-btn" id="btn-flip" aria-label="Reverse orbit (F)"><span class="svg-flip"></span></button>
+        <div class="fuel" id="hud-fuel"><i></i><small>hold to boost</small></div>
       </div>
 
       <div id="tutorial" hidden>
@@ -146,6 +211,7 @@
             <button class="btn" id="btn-restart">Restart</button>
             <button class="btn" id="btn-quit">Quit</button>
           </div>
+          <p class="sub small">Hold to boost · F or ⟲ to reverse orbit</p>
         </div>
       </div>
 
@@ -159,8 +225,50 @@
           <div class="result-dust"><span class="ico-dust"></span>+<b id="result-dust">0</b></div>
           <div class="row">
             <button class="btn" id="btn-result-map">Map</button>
-            <button class="btn" id="btn-result-retry">Retry</button>
+            <button class="btn primary" id="btn-result-retry">Retry</button>
             <button class="btn primary" id="btn-result-next">Next</button>
+          </div>
+          <p class="swipe-hint" id="swipe-hint">Swipe ← next · → retry</p>
+        </div>
+      </div>
+
+      <div class="modal" id="modal-turn" hidden>
+        <div class="panel card">
+          <h2 id="turn-title">Player 1</h2>
+          <p class="sub" id="turn-text"></p>
+          <div class="versus-board" id="turn-board"></div>
+          <button class="btn big primary" id="btn-turn-go">Go!</button>
+          <button class="btn" id="btn-turn-quit">Quit</button>
+        </div>
+      </div>
+
+      <div class="modal" id="modal-chest" hidden>
+        <div class="panel card">
+          <h2>Star chest</h2>
+          <div class="chest" id="chest-art"></div>
+          <p class="sub" id="chest-text"></p>
+          <button class="btn big gold" id="btn-chest-open">Open</button>
+          <button class="btn" id="btn-chest-close">Close</button>
+        </div>
+      </div>
+
+      <div class="modal" id="modal-install" hidden>
+        <div class="panel card">
+          <h2>Take Starhop with you</h2>
+          <p class="sub" id="install-text">Install Starhop on your home screen: it starts instantly and works offline.</p>
+          <button class="btn big primary" id="btn-install-yes">Install</button>
+          <button class="btn" id="btn-install-no">Not now</button>
+        </div>
+      </div>
+
+      <div class="modal" id="modal-code" hidden>
+        <div class="panel card">
+          <h2 id="code-title">Save code</h2>
+          <p class="sub" id="code-text"></p>
+          <textarea id="code-box" rows="5" spellcheck="false" autocomplete="off"></textarea>
+          <div class="row">
+            <button class="btn" id="btn-code-close">Close</button>
+            <button class="btn primary" id="btn-code-go">Copy</button>
           </div>
         </div>
       </div>

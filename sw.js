@@ -1,7 +1,7 @@
 // Offline support: precache the whole app shell. Requests go to the network first (with
 // `cache: 'no-cache'` revalidation) so every deploy shows up on the next load; the cache is only
 // used when the network is unavailable.
-const VERSION = 'starhop-v2'; // bump when the asset list changes; activate deletes older caches
+const VERSION = 'starhop-v3'; // bump when the asset list changes; activate deletes older caches
 const ASSETS = [
   './',
   'index.html',
