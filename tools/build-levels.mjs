@@ -1,4 +1,4 @@
-// Generate all 200 campaign levels into data/levels.json (run: npm run levels).
+// Generate all 250 campaign levels into data/levels.json (run: npm run levels).
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';

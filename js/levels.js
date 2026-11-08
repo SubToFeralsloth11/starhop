@@ -265,15 +265,9 @@ function parkedState(level, i, t, ang, dir) {
   return s;
 }
 
-// Sampled arrivals: [time, orbit angle] pairs spread over hazard periods and around the ring.
-const ESCAPE_POSES = [
-  [0, -Math.PI / 2],
-  [1.7, Math.PI / 6],
-  [3.4, (5 * Math.PI) / 6],
-  [5.2, Math.PI / 2],
-  [6.9, -Math.PI / 6],
-  [8.6, Math.PI],
-];
+// Sampled arrivals: twelve [time, orbit angle] pairs, 0.85 s apart (covering laser and moon periods)
+// and stepping 150° around the ring, so together they hit every 30° of the orbit.
+const ESCAPE_POSES = Array.from({ length: 12 }, (_, k) => [k * 0.85, (k * 5 * Math.PI) / 6]);
 // Each sampled arrival must reach a window within this many seconds. It is kept well under the
 // 15 s the docs promise because arrivals between the samples can take a few seconds longer.
 const ESCAPE_WAIT = 10;
